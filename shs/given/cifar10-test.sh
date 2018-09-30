@@ -3,7 +3,7 @@
 #SBATCH --cpus-per-task=6   # maximum CPU cores per GPU request: 6 on Cedar, 16 on Graham.
 #SBATCH --mem=4000M         # memory per node
 #SBATCH --time=0-00:30      # time (DD-HH:MM)
-#SBATCH --output=~/storage/DeepDream/given/cifar10-test-%j.out 
+#SBATCH --output=cifar10-test-%j.out 
 
 DATA_DIR=~/storage/DATA_DIR
 CKPT_DIR=~/storage/CKPT_DIR
