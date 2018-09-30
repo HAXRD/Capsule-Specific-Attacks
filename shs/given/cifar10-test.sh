@@ -8,10 +8,12 @@
 DATA_DIR=~/storage/DATA_DIR
 CKPT_DIR=~/storage/CKPT_DIR
 
+PROJECT_ROOT=~/HT/DeepDream/
+
 module load cuda cudnn python/2.7.14
 source ~/tfp2714/bin/activate
 
-python experiment.py --data_dir=$DATA_DIR --train=false --dataset=cifar10 \
+python $PROJECT_ROOT/experiment.py --data_dir=$DATA_DIR --train=false --dataset=cifar10 \
 --hparams_override=num_prime_capsules=64,padding=SAME,leaky=true,remake=false \
 --summary_dir=/tmp/ --checkpoint=$CKPT_DIR/cifar/cifar{}/model.ckpt-600000 \
 --num_trials=7
