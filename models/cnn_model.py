@@ -84,7 +84,7 @@ class CNNModel(model.Model):
             A model.Inferred named tuple of expected outputs of the model like 
             'logits' and 'remakes' for the reconstructions.
         """
-        image = feature['image']
+        image = feature['images']
         image_dim = feature['height']
         image_depth = feature['depth']
         image_4d = tf.reshape(image, [-1, image_depth, image_dim, image_dim]) # (NCHW)
