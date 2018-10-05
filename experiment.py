@@ -66,7 +66,7 @@ tf.flags.DEFINE_integer('num_trials', 1,
 # TODO:
 
 models = {
-    'cnn_model': cnn_model.CNNModel
+    'cnn': cnn_model.CNNModel
 }
 
 def train_experiment(session, result, writer, last_step, max_steps, saver, 
@@ -252,7 +252,6 @@ def train(hparams, summary_dir, num_gpus, model_type, max_steps, save_step,
         run_experiment(load_training, summary_dir, writer, train_experiment, result,
                        max_steps, save_step)
         writer.close()
-
 
 def default_hparams():
     """Builds an HParams object with default hyperparameters."""
