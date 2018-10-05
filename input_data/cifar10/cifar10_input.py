@@ -129,7 +129,7 @@ def inputs(split, data_dir, batch_size):
     """Constructs input for CIFAR experiment.
 
     Args:
-        split: 'train' or 'test', which split of the data set to read from.
+        split: 'train' or 'test' or 'dream', which split of the data set to read from.
         data_dir: Path to the CIFAR10 data directory
         batch_size: Number of images per batch.
     Returns:
@@ -138,9 +138,12 @@ def inputs(split, data_dir, batch_size):
     if split == 'train':
         filenames = [os.path.join(data_dir, 'data_batch_%d.bin' % i)
                      for i in range(1, 6)]
-    else:
+    elif split == 'test':
         filenames = [os.path.join(data_dir, 'test_batch.bin')]
-    
+    elif split == 'dream':
+        # TODO: implement dream
+        raise NotImplementedError('dream split not implemented!')
+
     filename_queue = tf.train.string_input_producer(filenames)
     float_image, label = _read_input(filename_queue)
 
