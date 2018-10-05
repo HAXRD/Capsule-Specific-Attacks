@@ -46,8 +46,6 @@ tf.flags.DEFINE_string('dataset', 'cifar10',
 tf.flags.DEFINE_integer('num_gpus', 1, 'Number of gpus to use.')
 tf.flags.DEFINE_integer('num_targets', 1,
                         'Number of targets to detect (1 or 2).')
-tf.flags.DEFINE_string('checkpoint', None,
-                       'The model checkpoint for evaluation.')
 tf.flags.DEFINE_string('mode', None,
                        'train or test or dream')
 
@@ -59,8 +57,8 @@ tf.flags.DEFINE_string('summary_dir', None,
 
 # test
 tf.flags.DEFINE_integer('eval_size', 10000, 'Size of the test dataset.')
-tf.flags.DEFINE_integer('num_trials', 1,
-                        'Number of trials for ensemble evaluation.')
+tf.flags.DEFINE_string('checkpoint', None,
+                       'The model checkpoint for evaluation.')
 
 # dream
 # TODO:
@@ -68,6 +66,123 @@ tf.flags.DEFINE_integer('num_trials', 1,
 models = {
     'cnn': cnn_model.CNNModel
 }
+
+def eval_experiment(session, result, writer, last_step, max_steps, **kwargs):
+    """Evaluates the current model on the test dataset once.
+
+    Evaluates the loaded model on the test dataset with batch sizes of 100.
+    Aggregates the results and writes one summary point to the summary file.
+
+    Args:
+        session: The loaded tf.Session() with the trained model.
+        result: The resultant operations of the model including evaluation metrics.
+        writer: The summary writer file.
+        last_step: The last trained step.
+        max_steps: Maximum number of evaluation iterations.
+        **kwargs: Arguments passd by run_experiment but not used in this function
+    """
+    del kwargs
+
+    total_correct = 0
+    total_almost = 0
+    for _ in range(max_steps):
+        summary_i, correct, almost = session.run(
+            [result.summary, result.correct, result.almost])
+        total_correct += correct
+        total_almost += almost
+    
+    total_false = max_steps * 100 - total_correct
+    total_almost_false = max_steps * 100 - total_almost
+    summary = tf.Summary.FromString(summary_i)
+    summary.value.add(tag='correct_prediction', simple_value=total_correct)
+    summary.value.add(tag='wrong_prediction', simple_value=total_false)
+    summary.value.add(
+        tag='almost_wrong_prediction', simple_value=total_almost_false)
+    print('Total wrong predictions: {}, wrong percent: {}%'.format(
+        total_false, total_false / max_steps))
+    tf.logging.info('Total wrong predictions: {}, wrong percent: {}%'.format(
+        total_false, total_false / max_steps))
+    writer.add_summary(summary, last_step)
+
+def load_eval(saver, session, load_dir):
+    """Loads the latest saved model to the given session.
+
+    Args:
+        saver: An instance of tf.train.saver to load the model into the session.
+        session: An instance of tf.Session with the built-in model graph
+        load_dir: The path to the latest checkpoint
+    Returns:
+        The latest saved step
+    """
+    saver.restore(session, load_dir)
+    print('model loaded successfully')
+    return extract_step(load_dir)
+
+def find_checkpoint(load_dir, seen_step):
+    """Finds the global step for the latest written checkpoint to the load_dir.
+
+    Args:
+        load_dir: The directory address to look for the training checkpoints.
+        seen_step: Lastest step which evaluation has been done on it.
+    Returns:
+        The latest new step in the load_dir and the file path of the latest model
+        in load_dir. If no new file is found returns -1 and None.
+    """
+    ckpt = tf.train.get_checkpoint_state(load_dir)
+    if ckpt and ckpt.model_checkpoint_path:
+        global_step = extract_step(ckpt.model_checkpoint_path)
+        if int(global_step) != seen_step:
+            return int(global_step), ckpt.model_checkpoint_path
+    return -1, None
+
+def evaluate(hparams, summary_dir, num_gpus, model_type, eval_size, data_dir,
+             num_targets, dataset, checkpoint=None):
+    """Continuously evaluates the latest trained model or a specific checkpoint.
+
+    Regularly (every 2 min, maximum 6 hours) checks the training directory for 
+    the latest model. If it finds any new model, it outputs the total number of 
+    correct and wrong predictions for the test data set to the summary file.
+    If a checkpoint is provided performs the evaluation only on the specific 
+    checkpoint.
+
+    Args:
+        hparams: The hyperparameters for building the model graph.
+        summary_dir: The directory to load training model and wrte test summaries.
+        num_gpus: Number of GPUs to use for reading data and computation.
+        model_type: The model architecture.
+        eval_size: Total number of examples in the test dataset.
+        data_dir: Directory containing the input data.
+        num_targets: Number of objects present in the image.
+        dataset: The name of the dataset for the experiment.
+        checkpoint: (optional) The checkpoint file name.
+    """
+    load_dir = summary_dir + '/train/'
+    summary_dir += '/test/'
+    with tf.Graph().as_default():
+        features = get_features('test', 100, num_gpus, data_dir, num_targets, dataset)
+        model = models[model_type](hparams)
+        result, _ = model.multi_gpu(features, ) # TODO: refer this 
+        test_writer = tf.summary.FileWriter(summary_dir)
+        seen_step = -1
+        paused = 0
+        while paused < 360: # 6 hours
+            print('start evaluation, model defined.')
+            if checkpoint:
+                step = extract_step(checkpoint)
+                last_checkpoint = checkpoint
+            else:
+                step, last_checkpoint = find_checkpoint(load_dir, seen_step)
+            if step == -1:
+                time.sleep(60)
+                paused += 1
+            else:
+                paused = 0
+                seen_step = step
+                run_experiment(load_eval, last_checkpoint, test_writer, eval_experiment,
+                               result, eval_size // 100)
+                if checkpoint:
+                    break
+        test_writer.close()
 
 def train_experiment(session, result, writer, last_step, max_steps, saver, 
                      summary_dir, save_step):
@@ -278,8 +393,9 @@ def main(_):
               FLAGS.max_steps, FLAGS.save_step, FLAGS.data_dir, FLAGS.num_targets,
               FLAGS.dataset)
     elif FLAGS.mode == 'test':
-        # TODO
-        pass
+        evaluate(hparams, FLAGS.summary_dir, FLAGS.num_gpus, FLAGS.model,
+                 FLAGS.eval_size, FLAGS.data_dir, FLAGS.num_targets,
+                 FLAGS.dataset, FLAGS.checkpoint)
     elif FLAGS.mode == 'dream':
         # TODO
         pass
