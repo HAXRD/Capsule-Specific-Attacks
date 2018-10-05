@@ -235,7 +235,7 @@ def train(hparams, summary_dir, num_gpus, model_type, max_steps, save_step,
         num_targets: Number of objects present in the image.
         dataset: Name of the dataset for the experiment.
     """
-    summary_dir = '/train/'
+    summary_dir += '/train/'
     with tf.Graph().as_default():
         # Build model
         features = get_features(
