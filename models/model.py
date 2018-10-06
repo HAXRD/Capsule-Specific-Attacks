@@ -61,6 +61,7 @@ class Model(object):
             learning_rate = tf.maximum(learning_rate, 1e-6) # init 'learning_rate'
 
             self._optimizer = tf.train.AdamOptimizer(learning_rate)
+    
     @abc.abstractmethod
     def inference(self, feature):
         """Adds the inference graph ops.
@@ -76,7 +77,7 @@ class Model(object):
             and 'remakes' for the reconstructions.
         """
         raise NotImplementedError('Not implemented!')
-    
+
     def _single_tower(self, tower_ind, feature):
         """Calculates the model gradient for a single tower ('tower' is the term that
         we call a replica in a single GPU device).

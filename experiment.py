@@ -60,12 +60,42 @@ tf.flags.DEFINE_integer('eval_size', 10000, 'Size of the test dataset.')
 tf.flags.DEFINE_string('checkpoint', None,
                        'The model checkpoint for evaluation.')
 
+# visualize
+# TODO:
+
 # dream
 # TODO:
 
 models = {
     'cnn': cnn_model.CNNModel
 }
+
+def visualize(hparams, summary_dir, model_type): 
+    """Visualizes a specific layer using gradient ascent.
+
+    Current: Given a noise image, compute the gradient of the logits,
+             adding gradient times step to original image.
+    =======================================================
+    TODO-1
+    1. load graph and print out all the tensors
+    2. load checkpoints
+    3. compute the gradients (TODO-2)
+        a. TODO-2.1: create batched (FIFO queue) to store n
+           number of images.
+        b. TODO-2.2: compute the gradients  (# = n, logits 
+           only for now) w.r.t. input.
+    4. produce the output.
+    ======================================================
+    """
+    load_dir = summary_dir + '/train/'
+    summary_dir += '/visualize/'
+    with tf.Graph().as_default():
+        model = models[model_type](hparams)
+        
+        all_op_names = [n.name for n in tf.get_default_graph().as_graph_def().node]
+        print(all_op_names)
+        pass
+    pass
 
 def eval_experiment(session, result, writer, last_step, max_steps, **kwargs):
     """Evaluates the current model on the test dataset once.
@@ -147,7 +177,7 @@ def evaluate(hparams, summary_dir, num_gpus, model_type, eval_size, data_dir,
 
     Args:
         hparams: The hyperparameters for building the model graph.
-        summary_dir: The directory to load training model and wrte test summaries.
+        summary_dir: The directory to load training model and write test summaries.
         num_gpus: Number of GPUs to use for reading data and computation.
         model_type: The model architecture.
         eval_size: Total number of examples in the test dataset.
@@ -299,7 +329,7 @@ def get_features(split, total_batch_size, num_gpus, data_dir, num_targets,
     Each tower of data has 1/FLAGS.num_gpus of the total_batch_size
 
     Args:
-        split: 'train' or 'test' or 'dream', split of the data to read.
+        split: 'train', 'test', 'visualize' or 'dream', split of the data to read.
         total_batch_size: total number of data entries over all towers.
         num_gpus: Number of GPUs to distribute the data on.
         data_dir: Directory containing the input data.
@@ -396,6 +426,10 @@ def main(_):
         evaluate(hparams, FLAGS.summary_dir, FLAGS.num_gpus, FLAGS.model,
                  FLAGS.eval_size, FLAGS.data_dir, FLAGS.num_targets,
                  FLAGS.dataset, FLAGS.checkpoint)
+    elif FLAGS.mode == 'visualize':
+        # TODO-0
+        visualize(hparams, FLAGS.summary_dir, FLAGS.model_type)
+        pass
     elif FLAGS.mode == 'dream':
         # TODO
         pass
