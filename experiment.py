@@ -91,9 +91,8 @@ def visualize(hparams, summary_dir, model_type):
     summary_dir += '/visualize/'
     with tf.Graph().as_default():
         model = models[model_type](hparams)
-        
         all_op_names = [n.name for n in tf.get_default_graph().as_graph_def().node]
-        print(all_op_names)
+        print(all_op_names) # ['global_step/Initializer/Const', 'global_step', 'global_step/Assign', 'global_step/read', 'ExponentialDecay/learning_rate', 'ExponentialDecay/Cast_1/x', 'ExponentialDecay/Cast_1', 'ExponentialDecay/Cast_2/x', 'ExponentialDecay/truediv', 'ExponentialDecay/Pow', 'ExponentialDecay', 'Maximum/y', 'Maximum']
         pass
     pass
 
@@ -428,7 +427,7 @@ def main(_):
                  FLAGS.dataset, FLAGS.checkpoint)
     elif FLAGS.mode == 'visualize':
         # TODO-0
-        visualize(hparams, FLAGS.summary_dir, FLAGS.model_type)
+        visualize(hparams, FLAGS.summary_dir, FLAGS.model)
         pass
     elif FLAGS.mode == 'dream':
         # TODO
