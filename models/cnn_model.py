@@ -87,7 +87,7 @@ class CNNModel(model.Model):
         image = feature['images']
         image_dim = feature['height']
         image_depth = feature['depth']
-        image_4d = tf.reshape(image, [-1, image_depth, image_dim, image_dim]) # (NCHW)
+        image_4d = tf.reshape(image, [-1, image_depth, image_dim, image_dim], name='image_4d') # (NCHW)
         conv = self._add_convs(image_4d, [image_depth, 512, 256]) 
         hidden1 = tf.contrib.layers.flatten(conv) # (?, -1)
 
@@ -105,6 +105,6 @@ class CNNModel(model.Model):
                 shape=[1024, feature['num_classes']], stddev=0.1, verbose=self._hparams.verbose)
             biases = variables.bias_variable(
                 shape=[feature['num_classes']], verbose=self._hparams.verbose)
-            logits = tf.matmul(hidden2, weights) + biases
+            logits = tf.add(tf.matmul(hidden2, weights), biases, name='logits')
         
         return model.Inferred(logits, None)

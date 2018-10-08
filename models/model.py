@@ -179,3 +179,19 @@ class Model(object):
         
         summarized_results = self._summarize_towers(almosts, corrects, tower_grads)
         return summarized_results, inferreds
+
+    def compute_gradients(self, features):
+        """
+
+        Returns:
+            logit_grad: The gradient of logits.
+            other_grads: Dictionary of other tensors gradients
+        """
+        with tf.variable_scope(tf.get_variable_scope()):
+            _ = self.inference(features)
+            logit_grad, other_grads = layers.get_gradients()
+        return logit_grad, other_grads
+
+    def naive_render():
+        
+        pass

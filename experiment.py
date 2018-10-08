@@ -26,6 +26,7 @@ import time
 import numpy as np 
 import tensorflow as tf 
 
+from input_data.noise import noise_input
 from input_data.cifar10 import cifar10_input
 
 from models import cnn_model
@@ -70,6 +71,36 @@ models = {
     'cnn': cnn_model.CNNModel
 }
 
+def visualize_experiment(loader, load_dir, _logits_grad, _other_grads):
+    """Starts a session, loads the model and runs visualization on it.
+
+    Args:
+        loader: A function of prototype (saver, session, load_dir) to load a 
+            saved checkpoint in load_dir given a session.
+    """
+    session = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
+    init_op = tf.group(tf.global_variables_initializer(),
+                       tf.local_variables_initializer())
+    session.run(init_op)
+    saver = tf.train.Saver(max_to_keep=1000)
+    last_step = loader(saver, session, load_dir)
+    coord = tf.train.Coordinator()
+    threads = tf.train.start_queue_runners(sess=session, coord=coord)
+    try:
+        logits_grad = session.run([_logits_grad])
+        print(logits_grad)
+    except tf.errors.OutOfRangeError:
+        tf.logging.info('Finished visualization.')
+    finally:
+        coord.request_stop()
+    coord.join()
+    session.close()
+
+def get_noise():
+    features = []
+    features.append(noise_input.inputs())
+    return features
+
 def visualize(hparams, summary_dir, model_type): 
     """Visualizes a specific layer using gradient ascent.
 
@@ -90,10 +121,13 @@ def visualize(hparams, summary_dir, model_type):
     load_dir = summary_dir + '/train/'
     summary_dir += '/visualize/'
     with tf.Graph().as_default():
+        features = get_noise()[0]
         model = models[model_type](hparams)
-        all_op_names = [n.name for n in tf.get_default_graph().as_graph_def().node]
-        print(all_op_names) # ['global_step/Initializer/Const', 'global_step', 'global_step/Assign', 'global_step/read', 'ExponentialDecay/learning_rate', 'ExponentialDecay/Cast_1/x', 'ExponentialDecay/Cast_1', 'ExponentialDecay/Cast_2/x', 'ExponentialDecay/truediv', 'ExponentialDecay/Pow', 'ExponentialDecay', 'Maximum/y', 'Maximum']
-        pass
+
+        logits_grad, other_grads = model.compute_gradients(features)
+        
+        _, last_checkpoint = find_checkpoint(load_dir, seen_step=-1)
+        visualize_experiment(load_eval, last_checkpoint, logits_grad, None)
     pass
 
 def eval_experiment(session, result, writer, last_step, max_steps, **kwargs):
@@ -190,7 +224,7 @@ def evaluate(hparams, summary_dir, num_gpus, model_type, eval_size, data_dir,
     with tf.Graph().as_default():
         features = get_features('test', 100, num_gpus, data_dir, num_targets, dataset)
         model = models[model_type](hparams)
-        result, _ = model.multi_gpu(features, ) # TODO: refer this 
+        result, _ = model.multi_gpu(features, num_gpus) # TODO: refer this 
         test_writer = tf.summary.FileWriter(summary_dir)
         seen_step = -1
         paused = 0
