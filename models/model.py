@@ -34,6 +34,7 @@ TowerResult = collections.namedtuple('TowerResult', ('inferred', 'almost',
 JoinedResult = collections.namedtuple('JoinedResult', ('summary', 'train_op',
                                                        'correct', 'almost'))
 Inferred = collections.namedtuple('Inferred', ('logits', 'remakes'))
+GradResult = collections.namedtuple('GradResult', ('logits_grad', 'other_grads'))
 
 class Model(object):
     """Base class for building a model and running inference on it."""
@@ -190,7 +191,7 @@ class Model(object):
         with tf.variable_scope(tf.get_variable_scope()):
             _ = self.inference(features)
             logit_grad, other_grads = layers.get_gradients()
-        return logit_grad, other_grads
+        return GradResult(logit_grad, other_grads)
 
     def naive_render():
         

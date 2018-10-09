@@ -124,11 +124,30 @@ def visualize(hparams, summary_dir, model_type):
         features = get_noise()[0]
         model = models[model_type](hparams)
 
-        logits_grad, other_grads = model.compute_gradients(features)
+        gradResult = model.compute_gradients(features)
         
-        _, last_checkpoint = find_checkpoint(load_dir, seen_step=-1)
-        visualize_experiment(load_eval, last_checkpoint, logits_grad, None)
-    pass
+        _, last_checkpoint = find_checkpoint(load_dir, -1)
+        
+        # experiment starts here
+        session = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
+        init_op = tf.group(tf.global_variables_initializer(),
+                           tf.local_variables_initializer())
+        session.run(init_op)
+        saver = tf.train.Saver(max_to_keep=1000)
+        last_step = load_eval(saver, session, last_checkpoint)
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(sess=session, coord=coord)
+
+        try:
+            logits_grad = session.run([gradResult.logits_grad])
+            print(logits_grad)
+        except tf.errors.OutOfRangeError:
+            tf.logging.info('Finished visualization.')
+        finally:
+            coord.request_stop()
+        coord.join()
+        session.close()
+
 
 def eval_experiment(session, result, writer, last_step, max_steps, **kwargs):
     """Evaluates the current model on the test dataset once.
@@ -508,8 +527,6 @@ def cp_evaluate(hparams, summary_dir, num_gpus, model_type, eval_size, data_dir,
             coord.request_stop()
         coord.join(threads)
         session.close()
-    pass
-
 
 def main(_):
     hparams = default_hparams()
