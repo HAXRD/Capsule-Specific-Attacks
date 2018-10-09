@@ -446,6 +446,70 @@ def default_hparams():
         verbose=False
     )
 
+
+def cp_evaluate(hparams, summary_dir, num_gpus, model_type, eval_size, data_dir,
+             num_targets, dataset):
+    """
+
+    Args:
+        hparams: The hyperparameters for building the model graph
+        summary_dir: The directory to load training model and write test summaries.
+        num_gpus: Number of GPUs to use for reading data and computation.
+        model_type: The model architecture category.
+        eval_size: Total number of examples in the test dataset.
+        data_dir: Directory containing the input data.
+        num_targets: Number of objects present in the image.
+        dataset: The name of the dataset for the experiment.
+    """
+    load_dir = summary_dir + '/train/'
+    summary_dir += '/test/'
+    with tf.Graph().as_default():
+        features = get_features('test', 100, num_gpus, data_dir,
+                                 num_targets, dataset) # get input features
+        model = models[model_type](hparams) # create model
+        result, _ = model.multi_gpu(features, num_gpus) # calculate logits
+        _, last_checkpoint = find_checkpoint(load_dir, -1) # get lastest checkpoint
+
+        # run experiment
+        session = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
+        init_op = tf.group(tf.global_variables_initializer(),
+                           tf.local_variables_initializer())
+        session.run(init_op)
+        saver = tf.train.Saver(max_to_keep=1000)
+        last_step = load_eval(saver, session, load_dir) # load the lastest step
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(sess=session, coord=coord)
+        try:
+            total_correct = 0
+            total_almost = 0
+            max_steps = eval_size // 100
+            for _ in range(max_steps):
+                summary_i, correct, almost = session.run(
+                    [result.summary, result.correct, result.almost])
+                total_correct += correct
+                total_almost += almost
+            
+            total_false = max_steps * 100 - total_correct
+            total_almost_false = max_steps * 100 - total_almost
+            summary = tf.Summary.FromString(summary_i)
+            summary.value.add(tag='correct_prediction', simple_value=total_correct)
+            summary.value.add(tag='wrong_prediction', simple_value=total_false)
+            summary.value.add(
+                tag='almost_wrong_prediction', simple_value=total_almost_false)
+            print('Total wrong predictions: {}, wrong percent: {}%'.format(
+                total_false, total_false / max_steps))
+            tf.logging.info('Total wrong predictions: {}, wrong percent: {}%'.format(
+                total_false, total_false / max_steps))
+            # writer.add_summary(summary, last_step)
+        except tf.errors.OutOfRangeError:
+            tf.logging.info('Finished experiment.')
+        finally:
+            coord.request_stop()
+        coord.join(threads)
+        session.close()
+    pass
+
+
 def main(_):
     hparams = default_hparams()
     if FLAGS.hparams_override:
@@ -459,6 +523,10 @@ def main(_):
         evaluate(hparams, FLAGS.summary_dir, FLAGS.num_gpus, FLAGS.model,
                  FLAGS.eval_size, FLAGS.data_dir, FLAGS.num_targets,
                  FLAGS.dataset, FLAGS.checkpoint)
+    elif FLAGS.mode == 'cp_test':
+        cp_evaluate(hparams, FLAGS.summary_dir, FLAGS.num_gpus, FLAGS.model,
+                    FLAGS.eval_size, FLAGS.data_dir, FLAGS.num_targets,
+                    FLAGS.dataset)
     elif FLAGS.mode == 'visualize':
         # TODO-0
         visualize(hparams, FLAGS.summary_dir, FLAGS.model)
