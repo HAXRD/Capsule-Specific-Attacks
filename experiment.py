@@ -208,7 +208,7 @@ def evaluate(hparams, summary_dir, num_gpus, model_type, eval_size, data_dir,
     If a checkpoint is provided performs the evaluation only on the specific 
     checkpoint.
 
-    Args:
+   Args:
         hparams: The hyperparameters for building the model graph.
         summary_dir: The directory to load training model and write test summaries.
         num_gpus: Number of GPUs to use for reading data and computation.
@@ -269,6 +269,7 @@ def train_experiment(session, result, writer, last_step, max_steps, saver,
         if (i + 1) % save_step == 0:
             saver.save(
                 session, os.path.join(summary_dir, 'model.ckpt'), global_step = i + 1)
+            print('model.ckpt step {} saved'.format(i + 1))
 
 def extract_step(path):
     """Returns the step from the file format name of Tensorflow checkpoints
@@ -469,14 +470,14 @@ def cp_evaluate(hparams, summary_dir, num_gpus, model_type, eval_size, data_dir,
         model = models[model_type](hparams) # create model
         result, _ = model.multi_gpu(features, num_gpus) # calculate logits
         _, last_checkpoint = find_checkpoint(load_dir, -1) # get lastest checkpoint
-
+        print(last_checkpoint)
         # run experiment
         session = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
         init_op = tf.group(tf.global_variables_initializer(),
                            tf.local_variables_initializer())
         session.run(init_op)
         saver = tf.train.Saver(max_to_keep=1000)
-        last_step = load_eval(saver, session, load_dir) # load the lastest step
+        last_step = load_eval(saver, session, last_checkpoint) # load the lastest step
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess=session, coord=coord)
         try:
