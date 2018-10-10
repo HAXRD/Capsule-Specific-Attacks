@@ -57,10 +57,7 @@ def _parse_record(record):
         'image': image,
         'label': tf.one_hot(label, 10),
         'recons_image': image,
-        'recons_label': label,
-        'image_dim': tf.cast([image_dim], tf.int32),
-        'depth': tf.cast([depth], tf.int32),
-        'num_classes': tf.cast([10], tf.int32)
+        'recons_label': label
     }
 
     return feature
@@ -82,9 +79,9 @@ def _process_batched_features(feature):
         'recons_images': feature['recons_image'],
         'labels': tf.squeeze(feature['label'], [1]),
         'recons_labels': tf.squeeze(feature['recons_label'], [1]),
-        'image_dim': tf.squeeze(feature['image_dim']),
-        'depth': tf.squeeze(feature['depth']),
-        'num_classes': tf.squeeze(feature['num_classes'])
+        'image_dim': tf.constant(32, tf.int32),
+        'depth': tf.constant(3, tf.int32),
+        'num_classes': tf.constant(10, tf.int32)
     }
     return batched_features
 
@@ -128,7 +125,7 @@ def inputs(split, data_dir, batch_size):
     batched_dataset = batched_dataset.map(_process_batched_features)
 
     return batched_dataset
-    
+
 if __name__ == '__main__':
     dataset = inputs('test', '/Users/xu/Downloads/cifar-10-batches-bin', 2)
     iterator = dataset.make_initializable_iterator()
@@ -141,8 +138,8 @@ if __name__ == '__main__':
             print(single['images'].shape)
             print(single['labels'].shape)
             print(single['recons_labels'].shape)
-            print(single['image_dim'].shape)
-            print(single['depth'].shape)
+            print(single['image_dim'])
+            print(single['depth'])
         except tf.errors.OutOfRangeError:
             pass
 
