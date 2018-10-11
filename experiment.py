@@ -192,7 +192,7 @@ def run_train_session(iterator, specs, num_gpus, # Dataset related
                 ckpt_path = saver.save(
                     sess, os.path.join(summary_dir, 'model.ckpt'), 
                     global_step=global_step)
-                tf.logging.info("{} epochs done (step = {}). Accuracy {}. Checkpoint {}".format(
+                print("{} epochs done (step = {}). Accuracy {}. Checkpoint {}".format(
                     i+1, global_step, accuracy, ckpt_path))
 
         """Debug
