@@ -98,7 +98,8 @@ class Model(object):
         train_op = self._optimizer.apply_gradients(
             grads, global_step=self._global_step)
         
-        summary = tf.summary.merge_all()
+        summaries = tf.get_collection(tf.GraphKeys.SUMMARIES)
+        summary = tf.summary.merge(summaries)
 
         stacked_corrects = tf.stack(corrects)
         summed_corrects = tf.reduce_sum(stacked_corrects, 0)
