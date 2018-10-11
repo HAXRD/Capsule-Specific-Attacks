@@ -26,7 +26,7 @@ from models.layers import utils
 Inferred = collections.namedtuple('Inferred',
                                  ('logits', 'remakes'))
 TowerResult = collections.namedtuple('TowerResult',
-                                    ('inferred', 'correct', 'total_loss_grad'))
+                                    ('inferred', 'correct', 'accuracy', 'total_loss_grad'))
 JoinedResult = collections.namedtuple('JoinedResult',
                                      ('summary', 'train_op', 'correct', 'accuracy'))
 
@@ -83,12 +83,13 @@ class Model(object):
             average_grads.append(grad_and_var)
         return average_grads
 
-    def _aggregate_towers(self, corrects, tower_loss_grads):
+    def _aggregate_towers(self, corrects, accuracies, tower_loss_grads):
         """Aggregate the results and gradients over all towers.
 
         Args:
             corrects: list, a list of the scalars of correct predictions
                 for each tower.
+            accuracies: list, a list of the floats of accuracies.
             tower_loss_grads: list, a list of gradients for each tower.
         Returns:
             A JoinedResult of summaries, train_op and correct predictions.
@@ -101,9 +102,10 @@ class Model(object):
 
         stacked_corrects = tf.stack(corrects)
         summed_corrects = tf.reduce_sum(stacked_corrects, 0)
-        accuracy = tf.reduce_mean(tf.cast(stacked_corrects, tf.float32))
+        stacked_accuracies = tf.stack(accuracies)
+        mean_accuracy = tf.reduce_mean(tf.cast(stacked_accuracies, tf.float32))
 
-        return JoinedResult(summary, train_op, summed_corrects, accuracy)
+        return JoinedResult(summary, train_op, summed_corrects, mean_accuracy)
 
     def build_replica(self):
         """Adds a replica graph ops.
@@ -128,7 +130,7 @@ class Model(object):
                 # Build a tower (replica)
                 inferred = self.build_replica()
                 # Calculate the loss and predictions
-                total_loss, num_correct_per_batch = utils.evaluate(
+                total_loss, num_correct_per_batch, accuracy = utils.evaluate(
                     logits=inferred.logits,
                     scope=scope,
                     loss_type=self._hparams.loss_type)
@@ -136,7 +138,7 @@ class Model(object):
                 tf.get_variable_scope().reuse_variables()
                 total_loss_grad = self._optimizer.compute_gradients(total_loss)
 
-        return TowerResult(inferred, num_correct_per_batch, total_loss_grad)
+        return TowerResult(inferred, num_correct_per_batch, accuracy, total_loss_grad)
 
     def build_model_on_multi_gpus(self, num_gpus):
         """Build the model and Graph and add the train ops on multiple GPUs.
@@ -150,14 +152,16 @@ class Model(object):
         """
         inferreds = []
         corrects = []
+        accuracies = []
         tower_loss_grads = []
         with tf.variable_scope(tf.get_variable_scope()):
             for i in range(num_gpus):
                 tower_out = self._build_single_tower(i)
                 inferreds.append(tower_out.inferred)
                 corrects.append(tower_out.correct)
+                accuracies.append(tower_out.accuracy)
                 tower_loss_grads.append(tower_out.total_loss_grad)
         
         aggregated_results = self._aggregate_towers(
-            corrects, tower_loss_grads)
+            corrects, accuracies, tower_loss_grads)
         return aggregated_results, inferreds

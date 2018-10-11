@@ -85,4 +85,4 @@ def evaluate(logits, scope, loss_type):
             accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
     tf.summary.scalar('accuracy', accuracy)
     tf.summary.scalar('correct_prediction_per_batch', num_correct_per_batch)
-    return total_loss, num_correct_per_batch
+    return total_loss, num_correct_per_batch, accuracy
