@@ -35,6 +35,7 @@ def _margin_loss(labels, raw_logits, margin=0.4, downweight=0.5):
     Returns:
         loss: tensor, total loss for each data point.
     """
+    labels = tf.cast(labels, tf.float32)
     logits = raw_logits - 0.5
     positive_cost = labels * tf.cast(tf.less(logits, margin),
                                      tf.float32) * tf.pow(logits - margin, 2)
@@ -53,7 +54,7 @@ def evaluate(logits, scope, loss_type):
         total_loss: total loss of model.
         num_correct_per_batch: scalar, number of correct predictions per batch.
     """
-    labels = tf.get_tensor_by_name(scope + '/batched_labels:0')
+    labels = tf.get_default_graph().get_tensor_by_name(scope + 'batched_labels:0')
     with tf.name_scope('loss'): # 'tower_i/loss'
         if loss_type == 'softmax':
             classification_loss = tf.nn.softmax_cross_entropy_with_logits(
