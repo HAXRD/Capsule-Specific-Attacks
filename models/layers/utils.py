@@ -79,7 +79,7 @@ def evaluate(logits, scope, loss_type):
         with tf.name_scope('correct_predictions'): # 'tower_i/accuracy/correct_predictions'
             preds = tf.argmax(logits, axis=1, output_type=tf.int32)
             lbls = tf.argmax(labels, axis=1, output_type=tf.int32)
-            correct = tf.equal(preds, lbls)
+            correct = tf.cast(tf.equal(preds, lbls), tf.float32)
             num_correct_per_batch = tf.reduce_sum(correct)
         with tf.name_scope('accuracy'):
             accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
