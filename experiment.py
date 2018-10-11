@@ -156,8 +156,11 @@ def run_train_session(iterator, specs, num_gpus, # Dataset related
         # Load the latest step if any
         latest_epoch = latest_epoch_loader(saver, sess, summary_dir)
 
+        total_time = 0
         # Start feeding process
         for i in range(latest_epoch, max_epochs): # epoch loop
+            start_anchor = time.time() # time anchor
+            
             step_counter = (i + 1) * specs['steps_per_epoch']
             # Initialize dataset
             sess.run(iterator.initializer)
@@ -193,11 +196,20 @@ def run_train_session(iterator, specs, num_gpus, # Dataset related
                 ckpt_path = saver.save(
                     sess, os.path.join(summary_dir, 'model.ckpt'), 
                     global_step=global_step)
-                print("{} epochs done (step = {}). Accuracy {}. Checkpoint saved at {}".format(
-                    i+1, global_step, accuracy, ckpt_path))
+                time_consuming = time.time() - start_anchor
+                print("{} epochs done (step = {}), accuracy {}. {}s, checkpoint saved at {}".format(
+                    i+1, global_step, accuracy, time_consuming, ckpt_path))
             else:
-                print("{} epochs done (step = {}). Accuracy {}.".format(
-                    i+1, global_step, accuracy))
+                time_consuming = time.time() - start_anchor
+                print("{} epochs done (step = {}), accuracy {}. {}s.".format(
+                    i+1, global_step, accuracy, time_consuming))
+            total_time += time_consuming
+        
+        print('total time: {}h:{}min:{}s, accuracy: {}.'.format(
+            total_time // 3600, 
+            total_time % 3600 // 60, 
+            total_time % 60,
+            accuracy))
         """Debug
 
             for i in range(max_epochs): # epochs loop
