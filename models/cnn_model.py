@@ -64,34 +64,32 @@ class CNNModel(model.Model):
         
         return input_tensor
 
-    def build_replica(self, batched_dataset):
+    def build_replica(self):
         """Adds a replica graph ops.
 
         Builds the architecture of the neural net to derive logits from batched_dataset.
         The inference graph defined here should involve trainable variables
         otherwise the optimizer will raise a ValueError.
 
-        Args:
-            batched_dataset: A dictionary of batched feature tensors like 
-                images, labels...
         Returns:
             undefined
         """
-        image_dim = batched_dataset['image_dim'][0]
-        image_depth = batched_dataset['depth'][0]
+        # Image specs
+        image_dim = self._specs['image_dim']
+        image_depth = self._specs['depth']
+        num_classes = self._specs['num_classes']
 
-        handle = tf.placeholder(
-            tf.float32, shape=[], name='batched_input_tensor')
-        iterator = tf.data.Iterator.from_string_handle(
-            handle, 
-            batched_dataset.output_types['images'],
-            batched_dataset.output_shapes['images'])
-        batched_images = iterator.get_next() # sinlge batched_images
+        # Define input_tensor for input batched_images
+        batched_images = tf.placeholder(tf.float32, 
+            shape=[None, image_depth, image_dim, image_dim], 
+            name='batched_images')
+        tf.add_to_collection('placeholders', batched_images)
         
-        # add convolutional layers
+        # Add convolutional layers
         conv_out = self._add_convs(batched_images, [image_depth, 512, 256])
         hidden1 = tf.contrib.layers.flatten(conv_out) # flatten neurons, shape (?, rest)
 
+        # Add fully connected layer 1, activation = relu
         with tf.variable_scope('fc1') as scope:
             dim = hidden1.get_shape()[1].value
             weights = variables.weight_variable(shape=[dim, 1024], stddev=0.1,
@@ -101,15 +99,21 @@ class CNNModel(model.Model):
             pre_activation = tf.add(tf.matmul(hidden1, weights), biases, name='logits')
             hidden2 = tf.nn.relu(pre_activation, name=scope.name)
         
+        # Add fully connected layer 2, activation = None
         with tf.variable_scope('softmax_layer') as scope:
             weights = variables.weight_variable(
-                shape=[1024, batched_dataset['num_classes']], stddev=0.1,
+                shape=[1024, num_classes], stddev=0.1,
                 verbose=self._hparams.verbose)
             biases = variables.bias_variable(
-                shape=[batched_dataset['num_classes']],
+                shape=[num_classes],
                 verbose=self._hparams.verbose)
             logits = tf.add(tf.matmul(hidden2, weights), biases, name='logits')
         
+        # Declare one-hot format placeholder for batched_labels
+        batched_labels = tf.placeholder(tf.int32,
+            shape=[None, num_classes], name='batched_labels') # 'tower_i/batched_labels:0'
+        tf.add_to_collection('placeholders', batched_labels)
+
         return model.Inferred(logits, None)
 
 

@@ -71,17 +71,13 @@ def _process_batched_features(feature):
             since we stacked them into batches).
     Returns:
         batched_features: A dictionary containing a batch_size of 'images',
-            'labels', 'recons_images', 'recons_labels', besides, we also
-            include 'image_dim', 'depth', 'num_classes'.
+            'labels', 'recons_images', 'recons_labels'.
     """
     batched_features = {
         'images': feature['image'],
         'recons_images': feature['recons_image'],
         'labels': tf.squeeze(feature['label'], [1]),
-        'recons_labels': tf.squeeze(feature['recons_label'], [1]),
-        'image_dim': tf.constant(32, tf.int32),
-        'depth': tf.constant(3, tf.int32),
-        'num_classes': tf.constant(10, tf.int32)
+        'recons_labels': tf.squeeze(feature['recons_label'], [1])
     }
     return batched_features
 
@@ -95,19 +91,28 @@ def inputs(split, data_dir, batch_size):
     Returns:
         batched_features: a dictionary of the input data features.
     """
+    # Dataset specs
+    specs = {
+        'split': split,
+        'total_batch_size': batch_size,
+        'image_dim': 32,
+        'depth': 3,
+        'num_classes': 10
+    }
+
     # Aggregating the filenames
     if split == 'train':
         filenames = [
             os.path.join(data_dir, 'data_batch_%d.bin' % i)
             for i in range(1, 6)]
+        specs['total_size'] = 50000
     elif split == 'test':
         filenames = [
             os.path.join(data_dir, 'test_batch.bin')]
-
+        specs['total_size'] = 10000
+    specs['steps_per_epoch'] = specs['total_size'] // specs['total_batch_size']
     # Fixed Length Record Dataset specifications
-    image_dim = 32
-    depth = 3
-    image_bytes = image_dim * image_dim * depth
+    image_bytes = specs['image_dim'] * specs['image_dim'] * specs['depth']
     label_bytes = 1
     record_bytes = label_bytes + image_bytes
     
@@ -123,11 +128,11 @@ def inputs(split, data_dir, batch_size):
     batched_dataset = dataset.batch(batch_size)
     # Process batched_dataset
     batched_dataset = batched_dataset.map(_process_batched_features)
-
-    return batched_dataset
+    
+    return batched_dataset, specs
 
 if __name__ == '__main__':
-    dataset = inputs('test', '/Users/xu/Downloads/cifar-10-batches-bin', 2)
+    dataset, _ = inputs('test', '/Users/xu/Downloads/cifar-10-batches-bin', 1)
     iterator = dataset.make_initializable_iterator()
     next_features = iterator.get_next()
 
@@ -135,11 +140,15 @@ if __name__ == '__main__':
         sess.run(iterator.initializer)
         try:
             single = sess.run(next_features)
-            print(single['images'].shape)
-            print(single['labels'].shape)
-            print(single['recons_labels'].shape)
-            print(single['image_dim'])
-            print(single['depth'])
+            print(single['images'])
+            print(single['labels'])
+            print(single['recons_labels'])
+            import matplotlib.pyplot as plt
+            import numpy as np
+            img = np.transpose(np.squeeze(single['images']), [1,2,0])
+            plt.imshow(img)
+            plt.show()
+
         except tf.errors.OutOfRangeError:
             pass
 
