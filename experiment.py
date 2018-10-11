@@ -180,8 +180,8 @@ def run_train_session(iterator, specs, num_gpus, # Dataset related
                                 elif 'batched_labels' in ph.name:
                                     feed_dict[ph] = batch_val['labels']
 
-                    summary, _ = sess.run(
-                        [result.summary, result.train_op], 
+                    summary, accuracy, _ = sess.run(
+                        [result.summary, result.accuracy, result.train_op], 
                         feed_dict=feed_dict)
                     writer.add_summary(summary, step_counter)
                 except tf.errors.OutOfRangeError:
@@ -192,8 +192,8 @@ def run_train_session(iterator, specs, num_gpus, # Dataset related
                 ckpt_path = saver.save(
                     sess, os.path.join(summary_dir, 'model.ckpt'), 
                     global_step=global_step)
-                tf.logging.info("{} epochs done (step = {}). Checkpoint saved to {}".format(
-                    i+1, global_step, ckpt_path))
+                tf.logging.info("{} epochs done (step = {}). Accuracy {}. Checkpoint {}".format(
+                    i+1, global_step, accuracy, ckpt_path))
 
         """Debug
 

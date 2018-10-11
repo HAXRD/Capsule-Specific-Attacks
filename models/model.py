@@ -28,7 +28,7 @@ Inferred = collections.namedtuple('Inferred',
 TowerResult = collections.namedtuple('TowerResult',
                                     ('inferred', 'correct', 'total_loss_grad'))
 JoinedResult = collections.namedtuple('JoinedResult',
-                                     ('summary', 'train_op', 'correct'))
+                                     ('summary', 'train_op', 'correct', 'accuracy'))
 
 class Model(object):
     """Base class for building a model and running inference on it."""
@@ -101,8 +101,9 @@ class Model(object):
 
         stacked_corrects = tf.stack(corrects)
         summed_corrects = tf.reduce_sum(stacked_corrects, 0)
+        accuracy = tf.reduce_mean(tf.cast(stacked_corrects, tf.float32))
 
-        return JoinedResult(summary, train_op, summed_corrects)
+        return JoinedResult(summary, train_op, summed_corrects, accuracy)
 
     def build_replica(self):
         """Adds a replica graph ops.
