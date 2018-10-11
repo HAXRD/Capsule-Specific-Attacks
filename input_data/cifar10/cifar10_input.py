@@ -81,7 +81,7 @@ def _process_batched_features(feature):
     }
     return batched_features
 
-def inputs(split, data_dir, batch_size):
+def inputs(split, data_dir, batch_size, num_gpus):
     """Construct input for cifar10 experiment.
 
     Args:
@@ -94,7 +94,8 @@ def inputs(split, data_dir, batch_size):
     # Dataset specs
     specs = {
         'split': split,
-        'total_batch_size': batch_size,
+        'total_batch_size': batch_size * num_gpus,
+        'batch_size': batch_size,
         'image_dim': 32,
         'depth': 3,
         'num_classes': 10
@@ -132,7 +133,7 @@ def inputs(split, data_dir, batch_size):
     return batched_dataset, specs
 
 if __name__ == '__main__':
-    dataset, _ = inputs('test', '/Users/xu/Downloads/cifar-10-batches-bin', 1)
+    dataset, _ = inputs('test', '/Users/xu/Downloads/cifar-10-batches-bin', 100, 1)
     iterator = dataset.make_initializable_iterator()
     next_features = iterator.get_next()
 

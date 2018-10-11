@@ -79,7 +79,7 @@ def get_distributed_batched_dataset(total_batch_size, num_gpus,
             raise NotImplementedError('norb not implemented yet!')
         elif dataset == 'cifar10':
             distributed_batched_dataset, specs = cifar10_input.inputs(
-                split, data_dir, batch_size)
+                split, data_dir, batch_size, num_gpus)
         else:
             raise ValueError(
                 'Unexpected dataset {} read!'.format(dataset))
