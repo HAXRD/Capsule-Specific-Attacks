@@ -187,14 +187,17 @@ def run_train_session(iterator, specs, num_gpus, # Dataset related
                 except tf.errors.OutOfRangeError:
                     break
                 # Finished one step
+            
+            global_step = (i + 1) * specs['steps_per_epoch']
             if (i + 1) % save_epochs == 0:
-                global_step = (i + 1) * specs['steps_per_epoch']
                 ckpt_path = saver.save(
                     sess, os.path.join(summary_dir, 'model.ckpt'), 
                     global_step=global_step)
-                print("{} epochs done (step = {}). Accuracy {}. Checkpoint {}".format(
+                print("{} epochs done (step = {}). Accuracy {}. Checkpoint saved at {}".format(
                     i+1, global_step, accuracy, ckpt_path))
-
+            else:
+                print("{} epochs done (step = {}). Accuracy {}.".format(
+                    i+1, global_step, accuracy))
         """Debug
 
             for i in range(max_epochs): # epochs loop
