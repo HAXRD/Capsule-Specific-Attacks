@@ -157,24 +157,26 @@ def run_train_session(iterator, specs, num_gpus, # Dataset related
                 """Add summary"""
                 writer.add_summary(summary, global_step=step_counter)
                 """Save ckpts"""
-                if step_counter % specs['steps_per_epoch'] == 0:
+                if step_counter % (specs['steps_per_epoch'] * save_epochs) == 0:
                     ckpt_path = saver.save(
                         sess, os.path.join(summary_dir, 'model.ckpt'),
                         global_step=step_counter)
                     time_consuming = time.time() - start_anchor
-                    print("{0} epochs done (step = {1}), accuracy {2:.4f}. {3:.2}s, checkpoint saved at {}".format(
+                    print("{0} epochs done (step = {1}), accuracy {2:.4f}. {3:.2}s, checkpoint saved at {4}".format(
                         step_counter // specs['steps_per_epoch'], 
                         step_counter, 
                         accuracy, 
                         time_consuming, 
                         ckpt_path))
-                else:
+                elif step_counter % specs['steps_per_epoch'] == 0:
                     time_consuming = time.time() - start_anchor
                     print("{0} epochs done (step = {1}), accuracy {2:.4f}. {3:.2}s".format(
                         step_counter // specs['steps_per_epoch'], 
                         step_counter, 
                         accuracy, 
                         time_consuming))
+                else:
+                    time_consuming = time.time() - start_anchor
                 total_time += time_consuming
             except tf.errors.OutOfRangeError:
                 break
@@ -266,7 +268,7 @@ def train(hparams, data_dir, dataset, model_type, total_batch_size,
         # Clear summary directory, TODO: start train from where left.
         # Call train experiment
         run_train_session(iterator, dataset_specs, num_gpus,
-                          summary_dir, max_to_keep
+                          summary_dir, max_to_keep,
                           result, save_epochs, max_epochs)
 
 def default_hparams():
