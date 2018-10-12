@@ -129,7 +129,9 @@ def inputs(split, data_dir, batch_size, num_gpus):
     batched_dataset = dataset.batch(batch_size)
     # Process batched_dataset
     batched_dataset = batched_dataset.map(_process_batched_features)
-    
+    # Prefetch to improve performance
+    batched_dataset = batched_dataset.prefetch(buffer_size=500)
+
     return batched_dataset, specs
 
 if __name__ == '__main__':
