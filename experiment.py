@@ -91,7 +91,7 @@ def extract_step(path):
 
     Args:
         path: The checkpoint path returned by tf.train.get_checkpoint_state.
-        The format is: {ckpnt_name}-{step}
+            The format is: {ckpnt_name}-{step}
     Returns:
         The last training step number of the checkpoint.
     """

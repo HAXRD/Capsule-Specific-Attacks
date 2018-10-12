@@ -42,8 +42,9 @@ class Model(object):
             hparams: The hyperparameters for the model as 
                 tf.contrib.train.HParams.
             dataset_spec: Specifications of the dataset, including
-                `split`, `total_batch_size`, `image_dim`, `depth`, 
-                `num_classes`, `total_size`.
+                `split`, `max_epochs`, `total_batch_size`, `num_gpus`,
+                `num_gpus`, `image_dim`, `depth`, 
+                `num_classes`, `total_size`, `steps_per_epoch`.
         """
         self._hparams = hparams
         self._specs = dataset_specs
@@ -111,12 +112,12 @@ class Model(object):
     def build_replica(self):
         """Adds a replica graph ops.
 
-        Builds the architecture of the neural net to derive logits from batched_dataset.
-        The inference graph defined here should involve trainable variables
-        otherwise the optimizer will raise a ValueError.
+        Builds the architecture of the neural net to derive logits from 
+        batched_dataset. The inference graph defined here should involve 
+        trainable variables otherwise the optimizer will raise a ValueError.
 
         Returns:
-            undefined
+            Inferred namedtuple containing (logits, None).
         """
         raise NotImplementedError('Not implemented.')
 

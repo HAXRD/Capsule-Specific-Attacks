@@ -67,12 +67,12 @@ class CNNModel(model.Model):
     def build_replica(self):
         """Adds a replica graph ops.
 
-        Builds the architecture of the neural net to derive logits from batched_dataset.
-        The inference graph defined here should involve trainable variables
-        otherwise the optimizer will raise a ValueError.
+        Builds the architecture of the neural net to derive logits from 
+        batched_dataset. The inference graph defined here should involve 
+        trainable variables otherwise the optimizer will raise a ValueError.
 
         Returns:
-            undefined
+            Inferred namedtuple containing (logits, None).
         """
         # Image specs
         image_dim = self._specs['image_dim']
