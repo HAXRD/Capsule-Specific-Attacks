@@ -129,6 +129,7 @@ def run_train_session(iterator, specs, num_gpus, # Dataset related
         # Initialize dataset
         sess.run(iterator.initializer)
 
+        epoch_time = 0
         total_time = 0
         step_counter = 0
         # Start feeding process
@@ -156,28 +157,28 @@ def run_train_session(iterator, specs, num_gpus, # Dataset related
                     feed_dict=feed_dict)
                 """Add summary"""
                 writer.add_summary(summary, global_step=step_counter)
+                time_consuming = time.time() - start_anchor
+                epoch_time += time_consuming 
+                total_time += time_consuming
                 """Save ckpts"""
                 if step_counter % (specs['steps_per_epoch'] * save_epochs) == 0:
                     ckpt_path = saver.save(
                         sess, os.path.join(summary_dir, 'model.ckpt'),
                         global_step=step_counter)
-                    time_consuming = time.time() - start_anchor
-                    print("{0} epochs done (step = {1}), accuracy {2:.4f}. {3:.2}s, checkpoint saved at {4}".format(
+                    print("{0} epochs done (step = {1}), accuracy {2:.4f}. {3:.2f}s, checkpoint saved at {4}".format(
                         step_counter // specs['steps_per_epoch'], 
                         step_counter, 
                         accuracy, 
-                        time_consuming, 
+                        epoch_time, 
                         ckpt_path))
+                    epoch_time = 0
                 elif step_counter % specs['steps_per_epoch'] == 0:
-                    time_consuming = time.time() - start_anchor
-                    print("{0} epochs done (step = {1}), accuracy {2:.4f}. {3:.2}s".format(
+                    print("{0} epochs done (step = {1}), accuracy {2:.4f}. {3:.2f}s".format(
                         step_counter // specs['steps_per_epoch'], 
                         step_counter, 
                         accuracy, 
-                        time_consuming))
-                else:
-                    time_consuming = time.time() - start_anchor
-                total_time += time_consuming
+                        epoch_time))
+                    epoch_time = 0
             except tf.errors.OutOfRangeError:
                 break
             # Finished one step
