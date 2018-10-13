@@ -182,10 +182,10 @@ def run_train_session(iterator, specs, num_gpus, # Dataset related
             except tf.errors.OutOfRangeError:
                 break
             # Finished one step
-        print('total time: {0:d}:{1:d}:{2:d}, accuracy: {3:.4f}.'.format(
-            total_time // 3600, 
-            total_time % 3600 // 60, 
-            total_time % 60,
+        print('total time: {0}:{1}:{2}, accuracy: {3:.4f}.'.format(
+            int(total_time // 3600), 
+            int(total_time % 3600 // 60), 
+            int(total_time % 60),
             accuracy))
         """Debug
 
