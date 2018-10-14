@@ -145,7 +145,7 @@ def visual(hparams, dataset, model_type,
         # Initializae model with hparams and dataset
     pass
 
-def run_test_session(iterator, specs, num_gpus, summary_dir):
+def run_test_session(iterator, specs, num_gpus, load_dir, summary_dir):
     """
 
     Args:
@@ -157,10 +157,11 @@ def run_test_session(iterator, specs, num_gpus, summary_dir):
         ckpt files not found.
     """
     # Find latest checkpoint information
-    latest_step, latest_ckpt_path = find_latest_checkpoint_info(summary_dir)
+    latest_step, latest_ckpt_path = find_latest_checkpoint_info(load_dir)
     if latest_step == -1 or latest_ckpt_path == None:
         raise ValueError('Checkpoint files not found!')
     else:
+        print('Found ckpt at step {}'.format(latest_step))
         latest_ckpt_meta_path = latest_ckpt_path + '.meta'
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         # Import compute graph
@@ -187,10 +188,11 @@ def run_test_session(iterator, specs, num_gpus, summary_dir):
                                 feed_dict[ph] = batch_val['images']
                             elif 'batched_labels' in ph.name:
                                 feed_dict[ph] = batch_val['labels']
-                                
-                results = tf.get_collection('results')[0]
-                accuracy, _ = sess.run(
-                    [results.accuracy, results.train_op],
+
+                res_acc = tf.get_collection('accuracy')[0]
+                
+                accuracy = sess.run(
+                    res_acc,
                     feed_dict=feed_dict)
                 print('accuracy {0:.4f}'.format(accuracy))
             except tf.errors.OutOfRangeError:
@@ -220,7 +222,7 @@ def test(hparams, data_dir, dataset, model_type, total_batch_size,
             total_batch_size, num_gpus, 1, data_dir, dataset, 'test')
         iterator = distributed_batched_dataset.make_initializable_iterator()
         # Call test experiment
-        run_test_session(iterator, dataset_specs, num_gpus, summary_dir)
+        run_test_session(iterator, dataset_specs, num_gpus, load_dir, summary_dir)
     pass
 
 def run_train_session(iterator, specs, num_gpus, # Dataset related
@@ -278,7 +280,7 @@ def run_train_session(iterator, specs, num_gpus, # Dataset related
                     [result.summary, result.accuracy, result.train_op],
                     feed_dict=feed_dict)
                 """Add summary"""
-                writer.add_summary(summary, latest_step=step_counter)
+                writer.add_summary(summary, global_step=step_counter)
                 time_consuming = time.time() - start_anchor
                 epoch_time += time_consuming 
                 total_time += time_consuming
