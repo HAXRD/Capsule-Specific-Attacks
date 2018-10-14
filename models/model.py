@@ -166,4 +166,5 @@ class Model(object):
         
         aggregated_results = self._aggregate_towers(
             corrects, accuracies, tower_loss_grads)
+        tf.add_to_collection('results', aggregated_results)
         return aggregated_results, inferreds

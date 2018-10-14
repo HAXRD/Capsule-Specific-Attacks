@@ -27,6 +27,7 @@ import numpy as np
 import tensorflow as tf 
 
 from input_data.cifar10 import cifar10_input
+from input_data.noise import noise_input_
 from models import cnn_model
 
 FLAGS = tf.flags.FLAGS
@@ -53,7 +54,9 @@ tf.flags.DEFINE_integer('max_to_keep', None,
                         'Maximum number of checkpoint files to keep.')
 tf.flags.DEFINE_integer('save_epochs', 5, 'How often to save checkpoints.')
 tf.flags.DEFINE_integer('max_epochs', 1500, 'Number of epochs to train.')
-
+tf.flags.DEFINE_integer('n_repeats', 10, 
+                        'How many repeats of noise dataset to create in'
+                        'order to visualize the available layers (hard coded).')
 models = {
     'cnn': cnn_model.CNNModel
 }
@@ -81,10 +84,28 @@ def get_distributed_batched_dataset(total_batch_size, num_gpus, max_epochs,
         elif dataset == 'cifar10':
             distributed_batched_dataset, specs = cifar10_input.inputs(
                 split, data_dir, total_batch_size, num_gpus, max_epochs)
+        elif dataset == 'noise':
+            distributed_batched_noise_images, specs = noise_input_.inputs(
+                num_gpus, max_epochs, total_batch_size)
+            return distributed_batched_noise_images, specs
         else:
             raise ValueError(
                 'Unexpected dataset {} read!'.format(dataset))
     return distributed_batched_dataset, specs
+
+def find_latest_checkpoint_info(load_dir):
+    """Finds the latest checkpoint information.
+
+    Args:
+        load_dir: the directory to look for the training checkpoints.
+    Returns:
+        latest global step, latest checkpoint path, 
+    """
+    ckpt = tf.train.get_checkpoint_state(load_dir)
+    if ckpt and ckpt.model_checkpoint_path:
+        latest_step = extract_step(ckpt.model_checkpoint_path)
+        return latest_step, ckpt.model_checkpoint_path
+    return -1, None
 
 def extract_step(path):
     """Returns the step from the file format name of Tensorflow checkpoints.
@@ -97,6 +118,110 @@ def extract_step(path):
     """
     file_name = os.path.basename(path)
     return int(file_name.split('-')[-1])
+
+def visual(hparams, dataset, model_type,
+           total_batch_size, num_gpus, summary_dir, 
+           n_repeats):
+    """Visualize available layers given noise images.
+
+    Args:
+        hparams:
+        dataset:
+        model_type:
+        total_batch_size:
+        num_gpus:
+        summary_dir:
+        n_repeats:
+    """
+    load_dir = summary_dir + '/visual/'
+    summary_dir += '/train/'
+
+    # Declare the empty model graph
+    with tf.Graph().as_default():
+        # Get batched dataset and declare initializable iterator
+        distributed_batched_noise_images, dataset_specs = get_distributed_batched_dataset(
+            total_batch_size, num_gpus, n_repeats, None, 'noise')
+        iterator = distributed_batched_noise_images.make_initializable_iterator()
+        # Initializae model with hparams and dataset
+    pass
+
+def run_test_session(iterator, specs, num_gpus, summary_dir):
+    """
+
+    Args:
+        iterator: iterator, dataset iterator.
+        specs: dict, dictionary containing dataset specifications.
+        num_gpus: scalar, number of gpus.
+        summary_dir: str, directory storing the checkpoints.
+    Raises:
+        ckpt files not found.
+    """
+    # Find latest checkpoint information
+    latest_step, latest_ckpt_path = find_latest_checkpoint_info(summary_dir)
+    if latest_step == -1 or latest_ckpt_path == None:
+        raise ValueError('Checkpoint files not found!')
+    else:
+        latest_ckpt_meta_path = latest_ckpt_path + '.meta'
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+        # Import compute graph
+        saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
+        # Restore variables
+        saver.restore(sess, latest_ckpt_path)
+
+        batch_data = iterator.get_next()
+        sess.run(iterator.initializer)
+
+        while True: # epoch loop
+            try:
+                batch_vals = []
+                for j in range(num_gpus):
+                    batch_vals.append(sess.run(batch_data))
+                
+                # Get placeholders and create feed_dict
+                feed_dict = {}
+                placeholders = tf.get_collection('placeholders')
+                for j, batch_val in enumerate(batch_vals):
+                    for ph in placeholders:
+                        if 'tower_%d' % j in ph.name:
+                            if 'batched_images' in ph.name:
+                                feed_dict[ph] = batch_val['images']
+                            elif 'batched_labels' in ph.name:
+                                feed_dict[ph] = batch_val['labels']
+                                
+                results = tf.get_collection('results')[0]
+                accuracy, _ = sess.run(
+                    [results.accuracy, results.train_op],
+                    feed_dict=feed_dict)
+                print('accuracy {0:.4f}'.format(accuracy))
+            except tf.errors.OutOfRangeError:
+                break
+
+def test(hparams, data_dir, dataset, model_type, total_batch_size,
+                  num_gpus, summary_dir, max_to_keep):
+    """Restore the graph and variables, and evaluate the the metrics.
+
+    Args:
+        hparams: The hyperparameters to build the model graph.
+        data_dir: The directory containing the input data.
+        dataset: The name of the dataset for the experiments.
+        model_type: The name of the model architecture.
+        total_batch_size: Total batch size, will be distributed to `num_gpus` GPUs.
+        num_gpus: The number of GPUs available.
+        summary_dir: The directory to write summaries and save the model.
+        max_to_keep: Maximum checkpoint files to keep.
+    """
+    load_dir = summary_dir + '/train/'
+    summary_dir += '/test/'
+
+    # Declare the empty model graph
+    with tf.Graph().as_default():
+        # Get batched dataset and declare initializable iterator
+        distributed_batched_dataset, dataset_specs = get_distributed_batched_dataset(
+            total_batch_size, num_gpus, 1, data_dir, dataset, 'test')
+        iterator = distributed_batched_dataset.make_initializable_iterator()
+        # Call test experiment
+        run_test_session(iterator, dataset_specs, num_gpus, summary_dir)
+    pass
 
 def run_train_session(iterator, specs, num_gpus, # Dataset related
                       summary_dir, max_to_keep, # Checkpoint related
@@ -126,9 +251,6 @@ def run_train_session(iterator, specs, num_gpus, # Dataset related
         # Declare saver object for future saving
         saver = tf.train.Saver(max_to_keep=max_to_keep)
 
-        # Initialize dataset
-        sess.run(iterator.initializer)
-
         epoch_time = 0
         total_time = 0
         step_counter = 0
@@ -156,7 +278,7 @@ def run_train_session(iterator, specs, num_gpus, # Dataset related
                     [result.summary, result.accuracy, result.train_op],
                     feed_dict=feed_dict)
                 """Add summary"""
-                writer.add_summary(summary, global_step=step_counter)
+                writer.add_summary(summary, latest_step=step_counter)
                 time_consuming = time.time() - start_anchor
                 epoch_time += time_consuming 
                 total_time += time_consuming
@@ -233,7 +355,7 @@ def train(hparams, data_dir, dataset, model_type, total_batch_size,
     summary_dir += '/train/'
 
     # Declare the empty model graph
-    with tf.Graph().as_default() as graph:
+    with tf.Graph().as_default():
         """ Simple example to load batched input
 
             # total size for test = 10,000
@@ -296,9 +418,12 @@ def main(_):
                        FLAGS.num_gpus, FLAGS.summary_dir, FLAGS.max_to_keep,
                        FLAGS.save_epochs, FLAGS.max_epochs)
     elif FLAGS.mode == 'test':
-        pass
+        test(hparams, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size,
+                      FLAGS.num_gpus, FLAGS.summary_dir, FLAGS.max_to_keep)
     elif FLAGS.mode == 'visual':
-        pass
+        visual(hparams, FLAGS.dataset, FLAGS.model,
+               FLAGS.total_batch_size, FLAGS.num_gpus, FLAGS.summary_dir,
+               FLAGS.n_repeats)
     elif FLAGS.mode == 'dream':
         pass
     else:
