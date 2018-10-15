@@ -137,16 +137,17 @@ def _compute_averaged_activation_grads(num_gpus):
         the input.
     """
     in_ph_tensors = []
-    visual_tensor_lists = [[] for _ in range(num_gpus)]
+    visual_tensor_lists = [[] for _ in range(len(tf.get_collection('tower_0_visual')))]
     for j in range(num_gpus):
         in_ph_tensors.append(tf.get_collection('tower_%d_placeholders' % j)[0])
         for k, act_tensor in enumerate(tf.get_collection('tower_%d_visual' % j)):
             visual_tensor_lists[k].append(act_tensor)
     
-    concated_ph_tensor = tf.concat(in_ph_tensors, 0)
-    concated_visual_tensors = [tf.concat(ts) for ts in visual_tensor_lists]
+    concated_ph_tensor = tf.concat(in_ph_tensors, 0, name='concated_placeholder')
+    concated_visual_tensors = [tf.concat(ts, 0, name=ts[0].name[:-2]) for ts in visual_tensor_lists]
     print(concated_ph_tensor.shape)
-    print([ts.shape for ts in concated_visual_tensors])
+    from pprint import pprint
+    pprint([ts for ts in concated_visual_tensors])
 
 def run_visual_session(iterator, specs, num_gpus, summary_dir):
     """

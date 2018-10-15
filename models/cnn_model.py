@@ -119,7 +119,7 @@ class CNNModel(model.Model):
                 verbose=self._hparams.verbose)
             logits = tf.add(tf.matmul(hidden2, weights), biases, name='logits')
             """visual"""
-            tf.add_to_collection('tower_%d_visual' % tower_idx, pre_activation)
+            tf.add_to_collection('tower_%d_visual' % tower_idx, logits)
         
         # Declare one-hot format placeholder for batched_labels
         batched_labels = tf.placeholder(tf.int32,
