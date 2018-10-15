@@ -56,7 +56,9 @@ tf.flags.DEFINE_integer('save_epochs', 5, 'How often to save checkpoints.')
 tf.flags.DEFINE_integer('max_epochs', 1500, 'Number of epochs to train.')
 tf.flags.DEFINE_integer('n_repeats', 10, 
                         'How many repeats of noise dataset to create in'
-                        'order to visualize the available layers (hard coded).')
+                        'order to visualize the available layers (hard coded).'
+                        'cnn 1806 = 512+1 + 256+1 + 1024+1 + 10+1;'
+                        'cap ?')
 models = {
     'cnn': cnn_model.CNNModel
 }
@@ -119,6 +121,82 @@ def extract_step(path):
     file_name = os.path.basename(path)
     return int(file_name.split('-')[-1])
 
+def _compute_averaged_activation_grads(num_gpus):
+    """Compute the averaged activation grads. This function adds some 
+    extra ops to the original graph, namely calculating the gradients of 
+    the objective functions w.r.t. input batched_images.
+
+    Args:
+        in_ph_tensors: a list of placeholder tensors that reserved
+            for batched_images.
+        visual_tensors: a list of lists of activation/logits tensors we used 
+            to compute objective functions.
+    Returns:
+        A dictionary whose keys are the name of the target layer and 
+        values are the gradients of the objective functions w.r.t.
+        the input.
+    """
+    in_ph_tensors = []
+    visual_tensor_lists = [[] for _ in range(num_gpus)]
+    for j in range(num_gpus):
+        in_ph_tensors.append(tf.get_collection('tower_%d_placeholders' % j)[0])
+        for k, act_tensor in enumerate(tf.get_collection('tower_%d_visual' % j)):
+            visual_tensor_lists[k].append(act_tensor)
+    
+    concated_ph_tensor = tf.concat(in_ph_tensors, 0)
+    concated_visual_tensors = [tf.concat(ts) for ts in visual_tensor_lists]
+    print(concated_ph_tensor.shape)
+    print([ts.shape for ts in concated_visual_tensors])
+
+def run_visual_session(iterator, specs, num_gpus, summary_dir):
+    """
+
+    Args:
+        iterator: iterator, dataset iterator.
+        specs: dict, dictionary containing dataset specifications.
+        num_gpus: scalar, number of gpus.
+        summary_dir: str, directory storing the checkpoints.
+    """
+    # Find latest checkpoint information
+    latest_step, latest_ckpt_path = find_latest_checkpoint_info(summary_dir)
+    if latest_step == -1 or latest_ckpt_path == None:
+        raise ValueError('Checkpoint files not found!')
+    else:
+        latest_ckpt_meta_path = latest_ckpt_path + '.meta'
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+        # Import compute graph
+        saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
+        # Restore variables
+        saver.restore(sess, latest_ckpt_path)
+
+        batch_data = iterator.get_next()
+        sess.run(iterator.initializer)
+
+        _compute_averaged_activation_grads(num_gpus)
+        
+        # while True: # epoch loop
+        #     try:
+        #         batch_vals = []
+        #         for j in range(num_gpus):
+        #             batch_vals.append(sess.run(batch_data))
+
+        #         # Get placeholders and create feed_dict
+        #         feed_dict = {}
+        #         placeholders = tf.get_collection('placeholders')
+        #         for j, batch_val in enumerate(batch_vals):
+        #             for ph in placeholders:
+        #                 if 'tower_%d' % j in ph.name:
+        #                     if 'batched_images' in ph.name:
+        #                         feed_dict[ph] = batch_val['images']
+                
+        #         results = tf.get_collection('results')[0] # namedtuple
+                
+
+        #         pass
+        #     except tf.errors.OutOfRangeError:
+        #         break
+
+
 def visual(hparams, dataset, model_type,
            total_batch_size, num_gpus, summary_dir, 
            n_repeats):
@@ -142,8 +220,8 @@ def visual(hparams, dataset, model_type,
         distributed_batched_noise_images, dataset_specs = get_distributed_batched_dataset(
             total_batch_size, num_gpus, n_repeats, None, 'noise')
         iterator = distributed_batched_noise_images.make_initializable_iterator()
-        # Initializae model with hparams and dataset
-    pass
+        # Call visual experiment
+        run_visual_session(iterator, dataset_specs, num_gpus, summary_dir)
 
 def run_test_session(iterator, specs, num_gpus, load_dir, summary_dir):
     """
@@ -180,14 +258,13 @@ def run_test_session(iterator, specs, num_gpus, load_dir, summary_dir):
                 
                 # Get placeholders and create feed_dict
                 feed_dict = {}
-                placeholders = tf.get_collection('placeholders')
                 for j, batch_val in enumerate(batch_vals):
+                    placeholders = tf.get_collection('tower_%d_placeholders' % j)
                     for ph in placeholders:
-                        if 'tower_%d' % j in ph.name:
-                            if 'batched_images' in ph.name:
-                                feed_dict[ph] = batch_val['images']
-                            elif 'batched_labels' in ph.name:
-                                feed_dict[ph] = batch_val['labels']
+                        if 'batched_images' in ph.name:
+                            feed_dict[ph] = batch_val['images']
+                        elif 'batched_labels' in ph.name:
+                            feed_dict[ph] = batch_val['labels']
 
                 res_acc = tf.get_collection('accuracy')[0]
                 
@@ -268,14 +345,13 @@ def run_train_session(iterator, specs, num_gpus, # Dataset related
                 
                 # Get placeholders and create feed_dict
                 feed_dict = {}
-                placeholders = tf.get_collection('placeholders')
                 for j, batch_val in enumerate(batch_vals):
+                    placeholders = tf.get_collection('tower_%d_placeholders' % j)
                     for ph in placeholders:
-                        if 'tower_%d' % j in ph.name:
-                            if 'batched_images' in ph.name:
-                                feed_dict[ph] = batch_val['images']
-                            elif 'batched_labels' in ph.name:
-                                feed_dict[ph] = batch_val['labels']
+                        if 'batched_images' in ph.name:
+                            feed_dict[ph] = batch_val['images']
+                        elif 'batched_labels' in ph.name:
+                            feed_dict[ph] = batch_val['labels']
                 summary, accuracy, _ = sess.run(
                     [result.summary, result.accuracy, result.train_op],
                     feed_dict=feed_dict)

@@ -109,13 +109,15 @@ class Model(object):
 
         return JoinedResult(summary, train_op, summed_corrects, mean_accuracy)
 
-    def build_replica(self):
+    def build_replica(self, tower_idx):
         """Adds a replica graph ops.
 
         Builds the architecture of the neural net to derive logits from 
         batched_dataset. The inference graph defined here should involve 
         trainable variables otherwise the optimizer will raise a ValueError.
 
+        Args:
+            tower_idx: tower index, used for collection naming.
         Returns:
             Inferred namedtuple containing (logits, None).
         """
@@ -130,7 +132,7 @@ class Model(object):
         with tf.device('/gpu:%d' % tower_idx):
             with tf.name_scope('tower_%d' % (tower_idx)) as scope:
                 # Build a tower (replica)
-                inferred = self.build_replica()
+                inferred = self.build_replica(tower_idx)
                 # Calculate the loss and predictions
                 total_loss, num_correct_per_batch, accuracy = utils.evaluate(
                     logits=inferred.logits,
