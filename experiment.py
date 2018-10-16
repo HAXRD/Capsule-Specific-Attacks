@@ -189,29 +189,30 @@ def run_visual_session(iterator, specs, num_gpus, summary_dir):
         batch_data = iterator.get_next()
         sess.run(iterator.initializer)
 
-        _compute_averaged_activation_grads(num_gpus)
+        result_grads = _compute_averaged_activation_grads(num_gpus)
         
-        # while True: # epoch loop
-        #     try:
-        #         batch_vals = []
-        #         for j in range(num_gpus):
-        #             batch_vals.append(sess.run(batch_data))
+        for i in range(1):
+            try:
+                batch_vals = []
+                for j in range(num_gpus):
+                    batch_vals.append(sess.run(batch_data))
 
-        #         # Get placeholders and create feed_dict
-        #         feed_dict = {}
-        #         placeholders = tf.get_collection('placeholders')
-        #         for j, batch_val in enumerate(batch_vals):
-        #             for ph in placeholders:
-        #                 if 'tower_%d' % j in ph.name:
-        #                     if 'batched_images' in ph.name:
-        #                         feed_dict[ph] = batch_val['images']
+                # Get placeholders and create feed_dict
+                feed_dict = {}
+                placeholders = tf.get_collection('placeholders')
+                for j, batch_val in enumerate(batch_vals):
+                    for ph in placeholders:
+                        if 'tower_%d' % j in ph.name:
+                            if 'batched_images' in ph.name:
+                                feed_dict[ph] = batch_val['images']
                 
-        #         results = tf.get_collection('results')[0] # namedtuple
-                
+                tar_grad_t = result_grads[-i-1]
+                tar_grad = sess.run(tar_grad_t, feed_dict=feed_dict)
 
-        #         pass
-        #     except tf.errors.OutOfRangeError:
-        #         break
+                print(tar_grad)
+
+            except tf.errors.OutOfRangeError:
+                break
 
 
 def visual(hparams, dataset, model_type,
@@ -235,7 +236,7 @@ def visual(hparams, dataset, model_type,
     with tf.Graph().as_default():
         # Get batched dataset and declare initializable iterator
         distributed_batched_noise_images, dataset_specs = get_distributed_batched_dataset(
-            total_batch_size, num_gpus, n_repeats, None, 'noise')
+            1, num_gpus, n_repeats, None, 'noise')
         iterator = distributed_batched_noise_images.make_initializable_iterator()
         # Call visual experiment
         run_visual_session(iterator, dataset_specs, num_gpus, summary_dir)
