@@ -149,6 +149,22 @@ def _compute_averaged_activation_grads(num_gpus):
     from pprint import pprint
     pprint([ts for ts in concated_visual_tensors])
 
+    result_grads = []
+    for act_t in concated_visual_tensors:
+        tensor_name_prefix = '/'.join(act_t.name.split('/')[1:-1]) + '/' + act_t.name.split('/')[-1][:-2]
+        print(tensor_name_prefix)
+        print(act_t.get_shape()) # (?, ch, ...)
+        splited_act_channels = tf.split(act_t, num_or_size_splits=act_t.get_shape()[1], axis=1,
+                                        name=tensor_name_prefix + '/split_op')
+        for ch in splited_act_channels:
+            ch_name = '_'.join(ch.name.split(':'))
+            ch_obj = tf.reduce_mean(ch, 0, name=ch_name+'/obj') # batched objective function
+            ch_grads = tf.gradients(ch_obj, ch, name=ch_name+'/grads')
+            result_grads.append(ch_grads)
+            # print(ch_grads)
+    print('Gradients computing completed!')
+    return result_grads
+
 def run_visual_session(iterator, specs, num_gpus, summary_dir):
     """
 
