@@ -56,8 +56,8 @@ def inputs(num_gpus, n_repeats, total_size=50, seed=123,split='default'):
     np.random.seed(seed)
     # Initialize a grey image with noise.
     noise_imgs = np.random.uniform(size=(
-        specs['batch_size'], specs['image_dim'], 
-        specs['image_dim'], specs['depth'])) + 100.0
+        specs['batch_size'], 
+        specs['depth'], specs['image_dim'], specs['image_dim'])) + 100.0
 
     # Extract single instance
     t_noise_img = tf.data.Dataset.from_tensor_slices((noise_imgs))

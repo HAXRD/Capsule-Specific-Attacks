@@ -28,14 +28,13 @@ class CNNModel(model.Model):
     layers. The last layer is linear and has 10 units.
     """
 
-    def _add_convs(self, tower_idx, input_tensor, channels):
+    def _add_convs(self, input_tensor, channels):
         """Adds the convolution layers.
 
         Adds a series of convolution layers with ReLU nonlinearity and pooling
         after each of them.
 
         Args:
-            tower_idx: tower index, used for collection naming.
             input_tensor: a 4D float tensor as the input to the first convolution.
             channels: A list of channel sizes for input_tensor and following
                 convolution layers. Number of channels in input tensor should be
@@ -58,7 +57,7 @@ class CNNModel(model.Model):
                 pre_activation = tf.nn.bias_add(
                     conv, biases, data_format='NCHW', name='logits')
                 """visual"""
-                tf.add_to_collection('tower_%d_visual' % tower_idx, pre_activation)
+                tf.add_to_collection('visual', pre_activation)
                 
                 relu = tf.nn.relu(pre_activation, name=scope.name)
                 if self._hparams.verbose:
@@ -68,15 +67,13 @@ class CNNModel(model.Model):
         
         return input_tensor
 
-    def build_replica(self, tower_idx):
+    def build_replica(self):
         """Adds a replica graph ops.
 
         Builds the architecture of the neural net to derive logits from 
         batched_dataset. The inference graph defined here should involve 
         trainable variables otherwise the optimizer will raise a ValueError.
 
-        Args:
-            tower_idx: tower index, used for collection naming.
         Returns:
             Inferred namedtuple containing (logits, None).
         """
@@ -90,10 +87,10 @@ class CNNModel(model.Model):
             shape=[None, image_depth, image_dim, image_dim], 
             name='batched_images')
         """visual"""
-        tf.add_to_collection('tower_%d_placeholders' % tower_idx, batched_images)
+        tf.add_to_collection('placeholders', batched_images)
         
         # Add convolutional layers
-        conv_out = self._add_convs(tower_idx, batched_images, [image_depth, 512, 256])
+        conv_out = self._add_convs(batched_images, [image_depth, 512, 256])
         hidden1 = tf.contrib.layers.flatten(conv_out) # flatten neurons, shape (?, rest)
 
         # Add fully connected layer 1, activation = relu
@@ -105,7 +102,7 @@ class CNNModel(model.Model):
                                              verbose=self._hparams.verbose)
             pre_activation = tf.add(tf.matmul(hidden1, weights), biases, name='logits')
             """visual"""
-            tf.add_to_collection('tower_%d_visual' % tower_idx, pre_activation)
+            tf.add_to_collection('visual', pre_activation)
 
             hidden2 = tf.nn.relu(pre_activation, name=scope.name)
         
@@ -119,12 +116,12 @@ class CNNModel(model.Model):
                 verbose=self._hparams.verbose)
             logits = tf.add(tf.matmul(hidden2, weights), biases, name='logits')
             """visual"""
-            tf.add_to_collection('tower_%d_visual' % tower_idx, logits)
+            tf.add_to_collection('visual', logits)
         
         # Declare one-hot format placeholder for batched_labels
         batched_labels = tf.placeholder(tf.int32,
             shape=[None, num_classes], name='batched_labels') # 'tower_i/batched_labels:0'
-        tf.add_to_collection('tower_%d_placeholders' % tower_idx, batched_labels)
+        tf.add_to_collection('placeholders', batched_labels)
 
         return model.Inferred(logits, None)
 

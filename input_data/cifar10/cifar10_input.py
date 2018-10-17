@@ -81,14 +81,13 @@ def _process_batched_features(feature):
     }
     return batched_features
 
-def inputs(split, data_dir, total_batch_size, num_gpus, max_epochs):
+def inputs(split, data_dir, batch_size, max_epochs):
     """Construct input for cifar10 experiment.
 
     Args:
         split: 'train' or 'test', which split of dataset to read from.
         data_dir: path to the cifar10 data directory.
-        total_batch_size: total number of images per batch.
-        num_gpus: number of GPUs available.
+        batch_size: total number of images per batch.
         max_epochs: maximum epochs go through the model.
     Returns:
         batched_features: a dictionary of the input data features.
@@ -97,9 +96,7 @@ def inputs(split, data_dir, total_batch_size, num_gpus, max_epochs):
     specs = {
         'split': split,
         'max_epochs': max_epochs,
-        'total_batch_size': total_batch_size,
-        'num_gpus': num_gpus,
-        'batch_size': total_batch_size // max(1, num_gpus),
+        'batch_size': batch_size,
         'image_dim': 32,
         'depth': 3,
         'num_classes': 10
@@ -115,7 +112,7 @@ def inputs(split, data_dir, total_batch_size, num_gpus, max_epochs):
         filenames = [
             os.path.join(data_dir, 'test_batch.bin')]
         specs['total_size'] = 10000
-    specs['steps_per_epoch'] = specs['total_size'] // specs['total_batch_size']
+    specs['steps_per_epoch'] = specs['total_size'] // specs['batch_size']
 
     # Fixed Length Record Dataset specifications
     image_bytes = specs['image_dim'] * specs['image_dim'] * specs['depth']
@@ -126,12 +123,12 @@ def inputs(split, data_dir, total_batch_size, num_gpus, max_epochs):
     dataset = tf.data.FixedLengthRecordDataset(
         filenames, record_bytes)
     # Prefetch the dataset, performance purpose
-    dataset = dataset.prefetch(buffer_size=specs['total_batch_size']*10)
+    dataset = dataset.prefetch(buffer_size=specs['batch_size']*10)
     
     # Shuffle(train only) and Repeat the dataset size to 'max_epochs'*total_size    
     if split == 'train':
         dataset = dataset.apply(tf.contrib.data.shuffle_and_repeat(
-            buffer_size=specs['total_batch_size']*10, count=specs['max_epochs']))
+            buffer_size=specs['batch_size']*10, count=specs['max_epochs']))
     elif split == 'test':
         dataset = dataset.repeat(specs['max_epochs'])
     # Parse dataset
@@ -141,12 +138,12 @@ def inputs(split, data_dir, total_batch_size, num_gpus, max_epochs):
     # Process batched_dataset
     batched_dataset = batched_dataset.map(_process_batched_features, num_parallel_calls=3)
     # Prefetch to improve performance
-    batched_dataset = batched_dataset.prefetch(specs['num_gpus'])
+    batched_dataset = batched_dataset.prefetch(1)
 
     return batched_dataset, specs
 
 if __name__ == '__main__':
-    dataset, _ = inputs('test', '/Users/xu/Downloads/cifar-10-batches-bin', 1, 1, 2)
+    dataset, _ = inputs('test', '/Users/xu/Downloads/cifar-10-batches-bin', 1, 2)
     iterator = dataset.make_initializable_iterator()
     next_features = iterator.get_next()
 

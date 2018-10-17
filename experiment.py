@@ -46,8 +46,7 @@ tf.flags.DEFINE_string('dataset', 'cifar10',
 tf.flags.DEFINE_string('model', 'cnn',
                        'The model to use for the experiment.'
                        'capsule or cnn')
-tf.flags.DEFINE_integer('total_batch_size', 100, 'Total batch size.')
-tf.flags.DEFINE_integer('num_gpus', 1, 'Number of gpus to use.')
+tf.flags.DEFINE_integer('batch_size', 100, 'Total batch size.')
 tf.flags.DEFINE_string('summary_dir', './summary',
                        'Main directory for the experiments.')
 tf.flags.DEFINE_integer('max_to_keep', None, 
@@ -63,14 +62,13 @@ models = {
     'cnn': cnn_model.CNNModel
 }
 
-def get_distributed_batched_dataset(total_batch_size, num_gpus, max_epochs,
-                             data_dir, dataset, split='default'):
+def get_batched_dataset(batch_size, max_epochs,
+                        data_dir, dataset, split='default'):
     """Reads the input data and set the batch_size to 1/`num_gpus`
-    of the `total_batch_size`. 
+    of the `batch_size`. 
 
     Args:
-        total_batch_size: Total number of data entries over all towers.
-        num_gpus: The number of GPUs available to use.
+        batch_size: Total number of data entries over all towers.
         max_epochs: The maximum epochs to run.
         data_dir: The directory containing the data.
         dataset: The name of dataset.
@@ -84,16 +82,16 @@ def get_distributed_batched_dataset(total_batch_size, num_gpus, max_epochs,
         elif dataset == 'norb':
             raise NotImplementedError('norb not implemented yet!')
         elif dataset == 'cifar10':
-            distributed_batched_dataset, specs = cifar10_input.inputs(
-                split, data_dir, total_batch_size, num_gpus, max_epochs)
+            batched_dataset, specs = cifar10_input.inputs(
+                split, data_dir, batch_size, max_epochs)
         elif dataset == 'noise':
-            distributed_batched_noise_images, specs = noise_input_.inputs(
-                num_gpus, max_epochs, total_batch_size)
-            return distributed_batched_noise_images, specs
+            batched_noise_images, specs = noise_input_.inputs(
+                max_epochs, 1)
+            return batched_noise_images, specs
         else:
             raise ValueError(
                 'Unexpected dataset {} read!'.format(dataset))
-    return distributed_batched_dataset, specs
+    return batched_dataset, specs
 
 def find_latest_checkpoint_info(load_dir):
     """Finds the latest checkpoint information.
@@ -121,57 +119,46 @@ def extract_step(path):
     file_name = os.path.basename(path)
     return int(file_name.split('-')[-1])
 
-def _compute_averaged_activation_grads(num_gpus):
+def _compute_activation_grads():
     """Compute the averaged activation grads. This function adds some 
     extra ops to the original graph, namely calculating the gradients of 
     the objective functions w.r.t. input batched_images.
 
-    Args:
-        in_ph_tensors: a list of placeholder tensors that reserved
-            for batched_images.
-        visual_tensors: a list of lists of activation/logits tensors we used 
-            to compute objective functions.
     Returns:
         A dictionary whose keys are the name of the target layer and 
         values are the gradients of the objective functions w.r.t.
         the input.
     """
-    in_ph_tensors = []
-    visual_tensor_lists = [[] for _ in range(len(tf.get_collection('tower_0_visual')))]
-    for j in range(num_gpus):
-        in_ph_tensors.append(tf.get_collection('tower_%d_placeholders' % j)[0])
-        for k, act_tensor in enumerate(tf.get_collection('tower_%d_visual' % j)):
-            visual_tensor_lists[k].append(act_tensor)
-    
-    concated_ph_tensor = tf.concat(in_ph_tensors, 0, name='concated_placeholder')
-    concated_visual_tensors = [tf.concat(ts, 0, name=ts[0].name[:-2]) for ts in visual_tensor_lists]
-    print(concated_ph_tensor.shape)
-    from pprint import pprint
-    pprint([ts for ts in concated_visual_tensors])
-
+    ph_tensors = tf.get_collection('placeholders') # returns a list of two placeholder tensors,
+                                                   # contain 'images' and ''
+    visual_tensors = tf.get_collection('visual') # returns a list of k logits tensors,
+                                                 # tensors before activation function.
     result_grads = []
-    for act_t in concated_visual_tensors:
-        tensor_name_prefix = '/'.join(act_t.name.split('/')[1:-1]) + '/' + act_t.name.split('/')[-1][:-2]
-        print(tensor_name_prefix)
-        print(act_t.get_shape()) # (?, ch, ...)
-        splited_act_channels = tf.split(act_t, num_or_size_splits=act_t.get_shape()[1], axis=1,
-                                        name=tensor_name_prefix + '/split_op')
-        for ch in splited_act_channels:
-            ch_name = '_'.join(ch.name.split(':'))
-            ch_obj = tf.reduce_mean(ch, 0, name=ch_name+'/obj') # batched objective function
-            ch_grads = tf.gradients(ch_obj, ch, name=ch_name+'/grads')
-            result_grads.append(ch_grads)
-            # print(ch_grads)
+    for logit_t in visual_tensors:
+        # write tensor prefix name
+        logit_t_name_prefix = '/'.join(logit_t.name.split('/')[:-1]) + '/' \
+                              + logit_t.name.split('/')[-1][:-2]
+        print(logit_t_name_prefix)
+        print(logit_t.get_shape()) # (?, ch, ...)
+        # split the tensor by channels, a list containing `ch` number of tensors 
+        # each having the shape of (?, 1, ...)
+        splited_logit_t_by_chs = tf.split(logit_t, num_or_size_splits=logit_t.get_shape()[1],
+                                          axis=1, name=logit_t_name_prefix + '/split_op')
+        for ch_t in splited_logit_t_by_chs:
+            ch_t_name = '_'.join(ch_t.name.split(':'))
+            ch_t_obj = tf.reduce_mean(ch_t, name=ch_t_name+'/obj')
+            ch_t_grads = tf.gradients(ch_t_obj, ch_t, name=ch_t_name+'/grads')
+            result_grads.append(ch_t_grads)
     print('Gradients computing completed!')
+    
     return result_grads
 
-def run_visual_session(iterator, specs, num_gpus, summary_dir):
+def run_visual_session(iterator, specs, summary_dir):
     """
 
     Args:
         iterator: iterator, dataset iterator.
         specs: dict, dictionary containing dataset specifications.
-        num_gpus: scalar, number of gpus.
         summary_dir: str, directory storing the checkpoints.
     """
     # Find latest checkpoint information
@@ -180,6 +167,7 @@ def run_visual_session(iterator, specs, num_gpus, summary_dir):
         raise ValueError('Checkpoint files not found!')
     else:
         latest_ckpt_meta_path = latest_ckpt_path + '.meta'
+
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         # Import compute graph
         saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
@@ -188,27 +176,21 @@ def run_visual_session(iterator, specs, num_gpus, summary_dir):
 
         batch_data = iterator.get_next()
         sess.run(iterator.initializer)
-
-        result_grads = _compute_averaged_activation_grads(num_gpus)
+        # Calculate the gradients
+        result_grads = _compute_activation_grads()
         
         for i in range(1):
             try:
-                batch_vals = []
-                for j in range(num_gpus):
-                    batch_vals.append(sess.run(batch_data))
+                batched_images = sess.run(batch_data)
 
-                # Get placeholders and create feed_dict
                 feed_dict = {}
                 placeholders = tf.get_collection('placeholders')
-                for j, batch_val in enumerate(batch_vals):
-                    for ph in placeholders:
-                        if 'tower_%d' % j in ph.name:
-                            if 'batched_images' in ph.name:
-                                feed_dict[ph] = batch_val['images']
+                for ph in placeholders:
+                    if 'batched_images' in ph.name:
+                        feed_dict[ph] = batched_images
                 
                 tar_grad_t = result_grads[-i-1]
                 tar_grad = sess.run(tar_grad_t, feed_dict=feed_dict)
-
                 print(tar_grad)
 
             except tf.errors.OutOfRangeError:
@@ -216,7 +198,7 @@ def run_visual_session(iterator, specs, num_gpus, summary_dir):
 
 
 def visual(hparams, dataset, model_type,
-           total_batch_size, num_gpus, summary_dir, 
+           batch_size, summary_dir, 
            n_repeats):
     """Visualize available layers given noise images.
 
@@ -224,8 +206,7 @@ def visual(hparams, dataset, model_type,
         hparams:
         dataset:
         model_type:
-        total_batch_size:
-        num_gpus:
+        batch_size:
         summary_dir:
         n_repeats:
     """
@@ -235,19 +216,18 @@ def visual(hparams, dataset, model_type,
     # Declare the empty model graph
     with tf.Graph().as_default():
         # Get batched dataset and declare initializable iterator
-        distributed_batched_noise_images, dataset_specs = get_distributed_batched_dataset(
-            1, num_gpus, n_repeats, None, 'noise')
-        iterator = distributed_batched_noise_images.make_initializable_iterator()
+        batched_dataset, dataset_specs = get_batched_dataset(
+            1, n_repeats, None, 'noise')
+        iterator = batched_dataset.make_initializable_iterator()
         # Call visual experiment
-        run_visual_session(iterator, dataset_specs, num_gpus, summary_dir)
+        run_visual_session(iterator, dataset_specs, summary_dir)
 
-def run_test_session(iterator, specs, num_gpus, load_dir, summary_dir):
+def run_test_session(iterator, specs, load_dir, summary_dir):
     """
 
     Args:
         iterator: iterator, dataset iterator.
         specs: dict, dictionary containing dataset specifications.
-        num_gpus: scalar, number of gpus.
         summary_dir: str, directory storing the checkpoints.
     Raises:
         ckpt files not found.
@@ -270,19 +250,16 @@ def run_test_session(iterator, specs, num_gpus, load_dir, summary_dir):
 
         while True: # epoch loop
             try:
-                batch_vals = []
-                for j in range(num_gpus):
-                    batch_vals.append(sess.run(batch_data))
+                batch_val = sess.run(batch_data)
                 
-                # Get placeholders and create feed_dict
+                # Get placeholders and create feed dict
                 feed_dict = {}
-                for j, batch_val in enumerate(batch_vals):
-                    placeholders = tf.get_collection('tower_%d_placeholders' % j)
-                    for ph in placeholders:
-                        if 'batched_images' in ph.name:
-                            feed_dict[ph] = batch_val['images']
-                        elif 'batched_labels' in ph.name:
-                            feed_dict[ph] = batch_val['labels']
+                placeholders = tf.get_collection('placeholders')
+                for ph in placeholders:
+                    if 'batched_images' in ph.name:
+                        feed_dict[ph] = batch_val['images']
+                    elif 'batched_labels' in ph.labels:
+                        feed_dict[ph] = batch_val['labels']
 
                 res_acc = tf.get_collection('accuracy')[0]
                 
@@ -293,8 +270,8 @@ def run_test_session(iterator, specs, num_gpus, load_dir, summary_dir):
             except tf.errors.OutOfRangeError:
                 break
 
-def test(hparams, data_dir, dataset, model_type, total_batch_size,
-                  num_gpus, summary_dir, max_to_keep):
+def test(hparams, data_dir, dataset, model_type, batch_size,
+                  summary_dir, max_to_keep):
     """Restore the graph and variables, and evaluate the the metrics.
 
     Args:
@@ -302,8 +279,7 @@ def test(hparams, data_dir, dataset, model_type, total_batch_size,
         data_dir: The directory containing the input data.
         dataset: The name of the dataset for the experiments.
         model_type: The name of the model architecture.
-        total_batch_size: Total batch size, will be distributed to `num_gpus` GPUs.
-        num_gpus: The number of GPUs available.
+        batch_size: Total batch size, will be distributed to `num_gpus` GPUs.
         summary_dir: The directory to write summaries and save the model.
         max_to_keep: Maximum checkpoint files to keep.
     """
@@ -313,16 +289,16 @@ def test(hparams, data_dir, dataset, model_type, total_batch_size,
     # Declare the empty model graph
     with tf.Graph().as_default():
         # Get batched dataset and declare initializable iterator
-        distributed_batched_dataset, dataset_specs = get_distributed_batched_dataset(
-            total_batch_size, num_gpus, 1, data_dir, dataset, 'test')
-        iterator = distributed_batched_dataset.make_initializable_iterator()
+        batched_dataset, dataset_specs = get_batched_dataset(
+            batch_size, 1, data_dir, dataset, 'test')
+        iterator = batched_dataset.make_initializable_iterator()
         # Call test experiment
-        run_test_session(iterator, dataset_specs, num_gpus, load_dir, summary_dir)
+        run_test_session(iterator, dataset_specs, load_dir, summary_dir)
     pass
 
-def run_train_session(iterator, specs, num_gpus, # Dataset related
+def run_train_session(iterator, specs, # Dataset related
                       summary_dir, max_to_keep, # Checkpoint related
-                      result, save_epochs, max_epochs): # Model related
+                      tower_output, save_epochs, max_epochs): # Model related
     """Starts a session, 
 
     Args:
@@ -331,7 +307,8 @@ def run_train_session(iterator, specs, num_gpus, # Dataset related
         num_gpus: scalar, number of gpus.
         summary_dir: str, directory storing the checkpoints.
         max_to_keep: scalar, maximum number of ckpt to keep.
-        result: namedtuple, JoinedResult('summary', 'train_op', 'correct')
+        tower_output: namedtuple, TowerResult('inferred', 'train_op', 
+                                    'summary', 'correct', 'accuracy')
         save_epochs: scalar, how often to save the model
         max_epochs: scalar, maximum number of epochs
     """
@@ -357,22 +334,24 @@ def run_train_session(iterator, specs, num_gpus, # Dataset related
             step_counter += 1
             
             try:
-                batch_vals = []
-                for j in range(num_gpus): # GPU loop
-                    batch_vals.append(sess.run(batch_data))
-                
+                # batch_vals = []
+                # for j in range(num_gpus): # GPU loop
+                #     batch_vals.append(sess.run(batch_data))
+                batch_val = sess.run(batch_data)
+
                 # Get placeholders and create feed_dict
                 feed_dict = {}
-                for j, batch_val in enumerate(batch_vals):
-                    placeholders = tf.get_collection('tower_%d_placeholders' % j)
-                    for ph in placeholders:
-                        if 'batched_images' in ph.name:
-                            feed_dict[ph] = batch_val['images']
-                        elif 'batched_labels' in ph.name:
-                            feed_dict[ph] = batch_val['labels']
+                placeholders = tf.get_collection('placeholders')
+                for ph in placeholders:
+                    if 'batched_images' in ph.name:
+                        feed_dict[ph] = batch_val['images']
+                    elif 'batched_labels' in ph.name:
+                        feed_dict[ph] = batch_val['labels']
+                
                 summary, accuracy, _ = sess.run(
-                    [result.summary, result.accuracy, result.train_op],
+                    [tower_output.summary, tower_output.accuracy, tower_output.train_op],
                     feed_dict=feed_dict)
+
                 """Add summary"""
                 writer.add_summary(summary, global_step=step_counter)
                 time_consuming = time.time() - start_anchor
@@ -426,8 +405,8 @@ def run_train_session(iterator, specs, num_gpus, # Dataset related
                 print(counter) # ==> 500
         """
 
-def train(hparams, data_dir, dataset, model_type, total_batch_size,
-                   num_gpus, summary_dir, max_to_keep,
+def train(hparams, data_dir, dataset, model_type, batch_size,
+                   summary_dir, max_to_keep,
                    save_epochs, max_epochs):
     """Trains a model with batch sizes of 100 to 50000/100*`max_epochs` steps.
 
@@ -441,8 +420,7 @@ def train(hparams, data_dir, dataset, model_type, total_batch_size,
         data_dir: The directory containing the input data.
         dataset: The name of the dataset for the experiments.
         model_type: The name of the model architecture.
-        total_batch_size: Total batch size, will be distributed to `num_gpus` GPUs.
-        num_gpus: The number of GPUs available.
+        batch_size: Total batch size, will be distributed to `num_gpus` GPUs.
         summary_dir: The directory to write summaries and save the model.
         max_to_keep: Maximum checkpoint files to keep.
         save_epochs: How often the training model should be saved.
@@ -469,14 +447,15 @@ def train(hparams, data_dir, dataset, model_type, total_batch_size,
                         break
         """
         # Get batched dataset and declare initializable iterator
-        distributed_batched_dataset, dataset_specs = get_distributed_batched_dataset(
-            total_batch_size, num_gpus, max_epochs, data_dir, dataset, 'train')
+        distributed_batched_dataset, dataset_specs = get_batched_dataset(
+            batch_size, max_epochs, data_dir, dataset, 'train')
         iterator = distributed_batched_dataset.make_initializable_iterator()
         # Initialize model with hparams and dataset_specs
         model = models[model_type](hparams, dataset_specs)
         # Build a model on multiple gpus and returns a tuple of 
         # (a list of input tensor placeholders, a list of output tensor placeholders)
-        result, _ = model.build_model_on_multi_gpus(num_gpus)
+        tower_output = model.build_model_on_single_gpu()
+        # TODO here
         """Print stats
             param_stats = tf.contrib.tfprof.model_analyzer.print_model_analysis(
                 tf.get_default_graph(),
@@ -486,9 +465,9 @@ def train(hparams, data_dir, dataset, model_type, total_batch_size,
         """
         # Clear summary directory, TODO: start train from where left.
         # Call train experiment
-        run_train_session(iterator, dataset_specs, num_gpus,
+        run_train_session(iterator, dataset_specs,
                           summary_dir, max_to_keep,
-                          result, save_epochs, max_epochs)
+                          tower_output, save_epochs, max_epochs)
 
 def default_hparams():
     """Builds an HParams object with default hperparameters."""
@@ -510,15 +489,15 @@ def main(_):
         hparams.parse(FLAGS.hparams_override)
 
     if FLAGS.mode == 'train':
-        train(hparams, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size,
-                       FLAGS.num_gpus, FLAGS.summary_dir, FLAGS.max_to_keep,
+        train(hparams, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.batch_size,
+                       FLAGS.summary_dir, FLAGS.max_to_keep,
                        FLAGS.save_epochs, FLAGS.max_epochs)
     elif FLAGS.mode == 'test':
-        test(hparams, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size,
-                      FLAGS.num_gpus, FLAGS.summary_dir, FLAGS.max_to_keep)
+        test(hparams, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.batch_size,
+                      FLAGS.summary_dir, FLAGS.max_to_keep)
     elif FLAGS.mode == 'visual':
         visual(hparams, FLAGS.dataset, FLAGS.model,
-               FLAGS.total_batch_size, FLAGS.num_gpus, FLAGS.summary_dir,
+               FLAGS.batch_size, FLAGS.summary_dir,
                FLAGS.n_repeats)
     elif FLAGS.mode == 'dream':
         pass
