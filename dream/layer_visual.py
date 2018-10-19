@@ -21,6 +21,7 @@ from __future__ import print_function
 
 from io import BytesIO
 import PIL.Image
+from scipy.misc import imresize
 
 import re
 import os
@@ -127,29 +128,29 @@ def _cal_grad_tiled(img, t_grad, in_ph_ref, sess, tile_size=512):
             grad[:, :, y:y+sz, x:x+sz] = g
     return np.roll(np.roll(grad, -sx, 3), -sy, 2)
 
-def tffunc(*argtypes):
-    """Helper that transforms TF-graph generating function into a regular one.
-    See "resize" function below.
-    """
-    placeholders = list(map(tf.placeholder, argtypes))
-    def wrap(f):
-        out = f(*placeholders)
-        def wrapper(*args, **kw):
-            return out.eval(dict(zip(placeholders, args)), session=kw.get('session'))
-        return wrapper
-    return wrap
+# def tffunc(*argtypes):
+#     """Helper that transforms TF-graph generating function into a regular one.
+#     See "resize" function below.
+#     """
+#     placeholders = list(map(tf.placeholder, argtypes))
+#     def wrap(f):
+#         out = f(*placeholders)
+#         def wrapper(*args, **kw):
+#             return out.eval(dict(zip(placeholders, args)), session=kw.get('session'))
+#         return wrapper
+#     return wrap
 
-def _resize(img, size):
-    """Resize the image using bilinear iterpolation
-    Args:
-        img: (32, 32, 3)
-        size: [64, 64]
-    Returns:
-        resized image (64, 64, 3)
-    """
-    scaled_img_t = tf.image.resize_bilinear(img, size)[0, :, :, :] # (64, 64, 3)
-    return scaled_img_t
-_resize = tffunc(np.float32, np.int32)(_resize)
+# def _resize(img, size):
+#     """Resize the image using bilinear iterpolation
+#     Args:
+#         img: (32, 32, 3)
+#         size: [64, 64]
+#     Returns:
+#         resized image (64, 64, 3)
+#     """
+#     scaled_img_t = tf.image.resize_bilinear(img, size)[0, :, :, :] # (64, 64, 3)
+#     return scaled_img_t
+# _resize = tffunc(np.float32, np.int32)(_resize)
 
 def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
                       iter_n=10, step=1.0, octave_n=3, octave_scale=2.0):
@@ -175,7 +176,8 @@ def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
     for octave in range(octave_n):
         if octave > 0:
             hw = np.float32(img.shape[:2]) * octave_scale # [64., 64.]
-            img = _resize(img, np.int32(hw)) # (64, 64, 3)
+            # img = _resize(img, np.int32(hw)) # (64, 64, 3)
+            img = imresize(img, hw) / 255.
         for i in range(iter_n):
             g = _cal_grad_tiled(img, t_grad, in_ph_ref, sess) # (1, 3, 64, 64)
             g /= g.std() + 1e-8
