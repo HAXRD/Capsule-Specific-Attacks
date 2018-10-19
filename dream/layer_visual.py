@@ -106,19 +106,21 @@ def _cal_grad_tiled(img, t_grad, in_ph_ref, sess, tile_size=512):
     Random shifts are applied to the image to blr tile boundaries over 
     multiple iterations.
 
+    Args:
+        img: shape (1, 3, 64, 64)
     """
     sz = tile_size 
-    h, w = img.shape[:2]
+    h, w = img.shape[-2:] # [64, 64]
     sx, sy = np.random.randint(sz, size=2)
-    img_shift = np.roll(np.roll(img, sx, 1), sy, 0)
+    img_shift = np.roll(np.roll(img, sx, 3), sy, 2)
     grad = np.zeros_like(img)
 
     for y in range(0, max(h - sz//2, sz), sz):
         for x in range(0, max(w - sz//2, sz), sz):
-            sub = img_shift[y:y+sz, x:x+sz]
+            sub = img_shift[:, :, y:y+sz, x:x+sz]
             g = sess.run(t_grad, {in_ph_ref: sub})
-            grad[y:y+sz, x:x+sz] = g
-    return np.roll(np.roll(grad, -sx, 1), -sy, 0)
+            grad[:, :, y:y+sz, x:x+sz] = g
+    return np.roll(np.roll(grad, -sx, 3), -sy, 2)
 
 def tffunc(*argtypes):
     """Helper that transforms TF-graph generating function into a regular one.
@@ -133,9 +135,17 @@ def tffunc(*argtypes):
     return wrap
 
 def _resize(img, size):
-    """Resize the image using bilinear iterpolation"""
-    img = tf.expand_dims(img, 0)
-    return tf.image.resize_bilinear(img, size)[0, :, :, :]
+    """Resize the image using bilinear iterpolation
+    Args:
+        img: (1, 3, 32, 32)
+        size: [64, 64]
+    Returns:
+        resized image (1, 3, 64, 64)
+    """
+    img = np.transpose(img, [0, 2, 3, 1]) # (1, 32, 32, 3)
+    scaled_img_t = tf.image.resize_bilinear(img, size)[0, :, :, :] # (1, 64, 64, 3)
+    scaled_img_t = tf.transpose(scaled_img_t, [0, 3, 1, 2]) # (1, 3, 64, 64)
+    return scaled_img_t
 _resize = tffunc(np.float32, np.int32)(_resize)
 
 def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
@@ -156,13 +166,12 @@ def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
         octave_n: the number of times to scale the output image.
         octave_scale: the scale value for each scale.
     """
-    img = img0.copy()
-    img = _squeeze_transpose(img)
+    img = img0.copy() # (1, 3, 32, 32)
 
     for octave in range(octave_n):
         if octave > 0:
-            hw = np.float32(img.shape[:2]) * octave_scale
-            img = _resize(img, np.int32(hw))
+            hw = np.float32(img.shape[-2:]) * octave_scale # [32., 32.]
+            img = _resize(img, np.int32(hw)) # (1, 3, 64, 64)
         for i in range(iter_n):
             g = _cal_grad_tiled(img, t_grad, in_ph_ref, sess)
             g /= g.std() + 1e-8
@@ -172,6 +181,6 @@ def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
         std_img_fn = std_img_fn = '-'.join(re.split('/|:', t_grad.name)) + '-octave{}'.format(str(octave))
         write_dir += '/multiscale/'
         _write_to_visual_dir(std_img, std_img_fn, write_dir)
-        
+
     
         
