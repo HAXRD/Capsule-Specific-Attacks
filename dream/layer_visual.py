@@ -28,6 +28,7 @@ import os
 import numpy as np 
 import tensorflow as tf 
 
+"""Naive feature visualizations"""
 def _write_to_visual_dir(std_img, filename, write_dir, fmt='jpeg'):
     """Saves the normalized images into given directory.
 
@@ -95,5 +96,82 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
     img = _squeeze_transpose(img)
     std_img = _stdvisual(img)
     std_img_fn = '-'.join(re.split('/|:', t_grad.name))
+    write_dir += '/naive/'
 
     _write_to_visual_dir(std_img, std_img_fn, write_dir)
+
+"""Multiscale feature visualizations"""
+def _cal_grad_tiled(img, t_grad, in_ph_ref, sess, tile_size=512):
+    """Compute the value of tensor t_grad over the image in a tiled way.
+    Random shifts are applied to the image to blr tile boundaries over 
+    multiple iterations.
+
+    """
+    sz = tile_size 
+    h, w = img.shape[:2]
+    sx, sy = np.random.randint(sz, size=2)
+    img_shift = np.roll(np.roll(img, sx, 1), sy, 0)
+    grad = np.zeros_like(img)
+
+    for y in range(0, max(h - sz//2, sz), sz):
+        for x in range(0, max(w - sz//2, sz), sz):
+            sub = img_shift[y:y+sz, x:x+sz]
+            g = sess.run(t_grad, {in_ph_ref: sub})
+            grad[y:y+sz, x:x+sz] = g
+    return np.roll(np.roll(grad, -sx, 1), -sy, 0)
+
+def tffunc(*argtypes):
+    """Helper that transforms TF-graph generating function into a regular one.
+    See "resize" function below.
+    """
+    placeholders = list(map(tf.placeholder, argtypes))
+    def wrap(f):
+        out = f(*placeholders)
+        def wrapper(*args, **kw):
+            return out.eval(dict(zip(placeholders, args)), session=kw.get('session'))
+        return wrapper
+    return wrap
+
+def _resize(img, size):
+    """Resize the image using bilinear iterpolation"""
+    img = tf.expand_dims(img, 0)
+    return tf.image.resize_bilinear(img, size)[0, :, :, :]
+_resize = tffunc(np.float32, np.int32)(_resize)
+
+def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
+                      iter_n=10, step=1.0, octave_n=3, octave_scale=2.0):
+    """Perform the feature visualizations on images and scale up the size
+    
+    Args:
+        t_grad: the gradient of target objective function w.r.t. the batched
+            input placeholder images, actually only 1 image per batch with 
+            the shape of (1, 3, 32, 32) (NCHW)
+        img0: the original noise image (1, 3, 32, 32)
+        in_ph_ref: input batched images placeholder, used as the key of feed_dict.
+        sess: the running session.
+        write_dir: the output directory of the augmented image(s) (after adding 
+        gradient values).
+        iter_n: number of iterations to add gradients to the noise.
+        step: a scalar for each iteration.
+        octave_n: the number of times to scale the output image.
+        octave_scale: the scale value for each scale.
+    """
+    img = img0.copy()
+    img = _squeeze_transpose(img)
+
+    for octave in range(octave_n):
+        if octave > 0:
+            hw = np.float32(img.shape[:2]) * octave_scale
+            img = _resize(img, np.int32(hw))
+        for i in range(iter_n):
+            g = _cal_grad_tiled(img, t_grad, in_ph_ref, sess)
+            g /= g.std() + 1e-8
+            img += g*step
+
+        std_img = _stdvisual(img)
+        std_img_fn = std_img_fn = '-'.join(re.split('/|:', t_grad.name)) + '-octave{}'.format(str(octave))
+        write_dir += '/multiscale/'
+        _write_to_visual_dir(std_img, std_img_fn, write_dir)
+        
+    
+        
