@@ -148,9 +148,11 @@ def _resize(img, size):
     Returns:
         resized image (64, 64, 3)
     """
-    scaled_img_t = tf.image.resize_bilinear(img, size)[0, :, :, :] # (64, 64, 3)
-    return scaled_img_t
-_resize = tffunc(np.float32, np.int32)(_resize)
+    img = np.expand_dims(img, 0)
+    img_t = tf.placeholder(dtype=tf.float32)
+    scaled_img_t = tf.image.resize_bilinear(img_t, size)
+    scaled_img = scaled_img_t.eval({img_t: img})[0, :, :, :]
+    return scaled_img
 
 def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
                       iter_n=8, step=1.0, octave_n=5, octave_scale=2.0):
