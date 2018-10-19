@@ -102,7 +102,7 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
     _write_to_visual_dir(std_img, std_img_fn, write_dir)
 
 """Multiscale feature visualizations"""
-def _cal_grad_tiled(img, t_grad, in_ph_ref, sess, tile_size=512):
+def _cal_grad_tiled(img, t_grad, in_ph_ref, sess, tile_size=32):
     """Compute the value of tensor t_grad over the image in a tiled way.
     Random shifts are applied to the image to blr tile boundaries over 
     multiple iterations.
@@ -153,7 +153,7 @@ def _cal_grad_tiled(img, t_grad, in_ph_ref, sess, tile_size=512):
 # _resize = tffunc(np.float32, np.int32)(_resize)
 
 def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
-                      iter_n=10, step=1.0, octave_n=3, octave_scale=2.0):
+                      iter_n=8, step=1.0, octave_n=5, octave_scale=2.0):
     """Perform the feature visualizations on images and scale up the size
     
     Args:
@@ -170,6 +170,7 @@ def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
         octave_n: the number of times to scale the output image.
         octave_scale: the scale value for each scale.
     """
+    write_dir += '/multiscale/'
     img = img0.copy() # (1, 3, 32, 32)
     img = _squeeze_transpose(img) # (32, 32, 3)
 
@@ -186,7 +187,6 @@ def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
 
         std_img = _stdvisual(img)
         std_img_fn = std_img_fn = '-'.join(re.split('/|:', t_grad.name)) + '-octave{}'.format(str(octave))
-        write_dir += '/multiscale/'
         _write_to_visual_dir(std_img, std_img_fn, write_dir)
 
     
