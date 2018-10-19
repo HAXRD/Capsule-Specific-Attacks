@@ -107,8 +107,9 @@ def _cal_grad_tiled(img, t_grad, in_ph_ref, sess, tile_size=512):
     multiple iterations.
 
     Args:
-        img: shape (1, 3, 64, 64)
+        img: shape (3, 64, 64)
     """
+    img = np.expand_dims(img, axis=0) # (1, 3, 64, 64)
     sz = tile_size 
     h, w = img.shape[-2:] # [64, 64]
     sx, sy = np.random.randint(sz, size=2)
@@ -143,8 +144,8 @@ def _resize(img, size):
         resized image (1, 3, 64, 64)
     """
     img = np.transpose(img, [0, 2, 3, 1]) # (1, 32, 32, 3)
-    scaled_img_t = tf.image.resize_bilinear(img, size)[0, :, :, :] # (1, 64, 64, 3)
-    scaled_img_t = tf.transpose(scaled_img_t, [0, 3, 1, 2]) # (1, 3, 64, 64)
+    scaled_img_t = tf.image.resize_bilinear(img, size)[0, :, :, :] # (64, 64, 3)
+    scaled_img_t = tf.transpose(scaled_img_t, [2, 0, 1]) # (3, 64, 64)
     return scaled_img_t
 _resize = tffunc(np.float32, np.int32)(_resize)
 
@@ -171,7 +172,7 @@ def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
     for octave in range(octave_n):
         if octave > 0:
             hw = np.float32(img.shape[-2:]) * octave_scale # [32., 32.]
-            img = _resize(img, np.int32(hw)) # (1, 3, 64, 64)
+            img = _resize(img, np.int32(hw)) # (3, 64, 64)
         for i in range(iter_n):
             g = _cal_grad_tiled(img, t_grad, in_ph_ref, sess)
             g /= g.std() + 1e-8
