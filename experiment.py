@@ -1,4 +1,5 @@
 # Copyright 2017 The TensorFlow Authors All Rights Reserved.
+# Copyright 2018 Xu Chen All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,6 +33,7 @@ import tensorflow as tf
 from input_data.cifar10 import cifar10_input
 from input_data.noise import noise_input_
 from models import cnn_model
+from dream import layer_visual
 
 FLAGS = tf.flags.FLAGS
 
@@ -122,39 +124,6 @@ def extract_step(path):
     file_name = os.path.basename(path)
     return int(file_name.split('-')[-1])
 
-def _write_to_visual_dir(std_img, filename, write_dir, fmt='jpeg'):
-    arr = np.uint8(np.clip(std_img, 0, 1) * 255)
-    f = BytesIO()
-    img = PIL.Image.fromarray(arr)
-    
-    if not os.path.exists(write_dir):
-        os.makedirs(write_dir)
-    fpath = os.path.join(write_dir, filename + '.' + fmt)
-    img.save(fpath, format=fmt) 
-    print('Wrote to {}'.format(fpath))
-
-def _stdvisual(img, s=0.1):
-    """Normalize the image range for visualization"""
-    return (img - img.mean()) / max(img.std(), 1e-4)*s + 0.5
-
-def _squeeze_n_transpose(img):
-    img = np.squeeze(img, axis=0)
-    img = np.transpose(img, [1, 2, 0])
-    return img
-
-def _render_naive(t_grad, img0, ph_ref, sess, write_dir, iter_n=20, step=1.0):
-    img = img0.copy()
-    for i in range(iter_n):
-        g = sess.run(t_grad, feed_dict={ph_ref: img})
-        g /= g.std() + 1e-8
-        img += g*step
-
-    img = _squeeze_n_transpose(img)
-    std_img = _stdvisual(img)
-    std_img_fn = '%'.join(re.split('/|:', t_grad.name))
-
-    _write_to_visual_dir(std_img, std_img_fn, write_dir)
-
 def _compute_activation_grads():
     """Compute the averaged activation grads. This function adds some 
     extra ops to the original graph, namely calculating the gradients of 
@@ -243,9 +212,7 @@ def run_visual_session(iterator, specs, load_dir, summary_dir):
                     if 'batched_images' in ph.name:
                         ph_ref = ph 
                 
-                _render_naive(t_grad, batched_images, ph_ref, sess,
-                              summary_dir, iter_n=20, step=1.0)
-            
+                layer_visual.render_naive(t_grad, batched_images, ph_ref, sess, summary_dir)
             except tf.errors.OutOfRangeError:
                 break
 
