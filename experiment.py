@@ -176,7 +176,7 @@ def _compute_activation_grads():
 
     return result_grads
 
-def run_visual_session(iterator, specs, load_dir, summary_dir):
+def run_visual_session(iterator, specs, load_dir, summary_dir, vis_type='naive'):
     """
 
     Args:
@@ -211,15 +211,20 @@ def run_visual_session(iterator, specs, load_dir, summary_dir):
                 for ph in placeholders:
                     if 'batched_images' in ph.name:
                         ph_ref = ph 
-                
-                layer_visual.render_naive(t_grad, batched_images, ph_ref, sess, summary_dir)
+                if vis_type == 'naive':
+                    layer_visual.render_naive(t_grad, batched_images, ph_ref, sess, summary_dir)
+                elif vis_type == 'multiscale':
+                    layer_visual.render_multiscale(t_grad, batched_images, ph_ref, sess, summary_dir)
+                elif vis_type == 'pyramid':
+                    pass
+                    
             except tf.errors.OutOfRangeError:
                 break
 
 
 def visual(hparams, dataset, model_type,
            batch_size, summary_dir, 
-           n_repeats):
+           n_repeats, vis_type='naive'):
     """Visualize available layers given noise images.
 
     Args:
@@ -240,7 +245,7 @@ def visual(hparams, dataset, model_type,
             1, n_repeats, None, 'noise')
         iterator = batched_dataset.make_initializable_iterator()
         # Call visual experiment
-        run_visual_session(iterator, dataset_specs, load_dir, summary_dir)
+        run_visual_session(iterator, dataset_specs, load_dir, summary_dir, vis_type)
 
 def run_test_session(iterator, specs, load_dir, summary_dir):
     """
@@ -515,10 +520,10 @@ def main(_):
     elif FLAGS.mode == 'test':
         test(hparams, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.batch_size,
                       FLAGS.summary_dir, FLAGS.max_to_keep)
-    elif FLAGS.mode == 'visual':
+    elif FLAGS.mode == 'naive' or FLAGS.mode == 'multiscale' or FLAGS.mode == 'pyramid':
         visual(hparams, FLAGS.dataset, FLAGS.model,
                FLAGS.batch_size, FLAGS.summary_dir,
-               FLAGS.n_repeats)
+               FLAGS.n_repeats, FLAGS.mode)
     elif FLAGS.mode == 'dream':
         pass
     else:
