@@ -22,6 +22,9 @@ from __future__ import print_function
 import os
 import sys
 import time
+import re
+from io import BytesIO
+import PIL.Image
 
 import numpy as np 
 import tensorflow as tf 
@@ -119,6 +122,39 @@ def extract_step(path):
     file_name = os.path.basename(path)
     return int(file_name.split('-')[-1])
 
+def _write_to_visual_dir(std_img, filename, write_dir, fmt='jpeg'):
+    arr = np.uint8(np.clip(std_img, 0, 1) * 255)
+    f = BytesIO()
+    img = PIL.Image.fromarray(arr)
+    
+    if not os.path.exists(write_dir):
+        os.makedirs(write_dir)
+    fpath = os.path.join(write_dir, filename + '.' + fmt)
+    img.save(fpath, format=fmt) 
+    print('Wrote to {}'.format(fpath))
+
+def _stdvisual(img, s=0.1):
+    """Normalize the image range for visualization"""
+    return (img - img.mean()) / max(img.std(), 1e-4)*s + 0.5
+
+def _squeeze_n_transpose(img):
+    img = np.squeeze(img, axis=0)
+    img = np.transpose(img, [1, 2, 0])
+    return img
+
+def _render_naive(t_grad, img0, ph_ref, sess, write_dir, iter_n=20, step=1.0):
+    img = img0.copy()
+    for i in range(iter_n):
+        g = sess.run(t_grad, feed_dict={ph_ref: img})
+        g /= g.std() + 1e-8
+        img += g*step
+
+    img = _squeeze_n_transpose(img)
+    std_img = _stdvisual(img)
+    std_img_fn = '%'.join(re.split('/|:', t_grad.name))
+
+    _write_to_visual_dir(std_img, std_img_fn, write_dir)
+
 def _compute_activation_grads():
     """Compute the averaged activation grads. This function adds some 
     extra ops to the original graph, namely calculating the gradients of 
@@ -130,7 +166,12 @@ def _compute_activation_grads():
         the input.
     """
     ph_tensors = tf.get_collection('placeholders') # returns a list of two placeholder tensors,
-                                                   # contain 'images' and ''
+                                                   # contain 'images' and 'labels'
+    # get input 'batched_images' tensor
+    for ph in ph_tensors:
+        if 'batched_images' in ph.name:
+            batched_images_t = ph
+
     visual_tensors = tf.get_collection('visual') # returns a list of k logits tensors,
                                                  # tensors before activation function.
     result_grads = []
@@ -144,16 +185,29 @@ def _compute_activation_grads():
         # each having the shape of (?, 1, ...)
         splited_logit_t_by_chs = tf.split(logit_t, num_or_size_splits=logit_t.get_shape()[1],
                                           axis=1, name=logit_t_name_prefix + '/split_op')
+
+        last_ch_t_name= '_'.join(splited_logit_t_by_chs[-1].name.split(':'))
+        last_ch_obj = tf.reduce_mean(splited_logit_t_by_chs[-1], name=last_ch_t_name+'/obj')
+        last_ch_grads = tf.gradients(last_ch_obj, batched_images_t, name=last_ch_t_name+'/grads')
+        result_grads.append(last_ch_grads)
+        print(splited_logit_t_by_chs[-1], last_ch_obj, batched_images_t, last_ch_grads)
+
+
+        """
         for ch_t in splited_logit_t_by_chs:
             ch_t_name = '_'.join(ch_t.name.split(':'))
             ch_t_obj = tf.reduce_mean(ch_t, name=ch_t_name+'/obj')
-            ch_t_grads = tf.gradients(ch_t_obj, ch_t, name=ch_t_name+'/grads')
+            ch_t_grads = tf.gradients(ch_t_obj, batched_images_t, name=ch_t_name+'/grads')
             result_grads.append(ch_t_grads)
+            print(ch_t, ch_t_obj, batched_images_t, ch_t_grads)
+        """
     print('Gradients computing completed!')
-    
+    # flatten the list
+    result_grads = [item for sub in result_grads for item in sub]
+
     return result_grads
 
-def run_visual_session(iterator, specs, summary_dir):
+def run_visual_session(iterator, specs, load_dir, summary_dir):
     """
 
     Args:
@@ -162,7 +216,7 @@ def run_visual_session(iterator, specs, summary_dir):
         summary_dir: str, directory storing the checkpoints.
     """
     # Find latest checkpoint information
-    latest_step, latest_ckpt_path = find_latest_checkpoint_info(summary_dir)
+    latest_step, latest_ckpt_path = find_latest_checkpoint_info(load_dir)
     if latest_step == -1 or latest_ckpt_path == None:
         raise ValueError('Checkpoint files not found!')
     else:
@@ -178,21 +232,20 @@ def run_visual_session(iterator, specs, summary_dir):
         sess.run(iterator.initializer)
         # Calculate the gradients
         result_grads = _compute_activation_grads()
-        
-        for i in range(1):
+        print(result_grads)
+
+        for t_grad in result_grads:
             try:
                 batched_images = sess.run(batch_data)
 
-                feed_dict = {}
                 placeholders = tf.get_collection('placeholders')
                 for ph in placeholders:
                     if 'batched_images' in ph.name:
-                        feed_dict[ph] = batched_images
+                        ph_ref = ph 
                 
-                tar_grad_t = result_grads[-i-1]
-                tar_grad = sess.run(tar_grad_t, feed_dict=feed_dict)
-                print(tar_grad)
-
+                _render_naive(t_grad, batched_images, ph_ref, sess,
+                              summary_dir, iter_n=20, step=1.0)
+            
             except tf.errors.OutOfRangeError:
                 break
 
@@ -210,8 +263,8 @@ def visual(hparams, dataset, model_type,
         summary_dir:
         n_repeats:
     """
-    load_dir = summary_dir + '/visual/'
-    summary_dir += '/train/'
+    load_dir = summary_dir + '/train/'
+    summary_dir += '/visual/'
 
     # Declare the empty model graph
     with tf.Graph().as_default():
@@ -220,7 +273,7 @@ def visual(hparams, dataset, model_type,
             1, n_repeats, None, 'noise')
         iterator = batched_dataset.make_initializable_iterator()
         # Call visual experiment
-        run_visual_session(iterator, dataset_specs, summary_dir)
+        run_visual_session(iterator, dataset_specs, load_dir, summary_dir)
 
 def run_test_session(iterator, specs, load_dir, summary_dir):
     """
@@ -258,7 +311,7 @@ def run_test_session(iterator, specs, load_dir, summary_dir):
                 for ph in placeholders:
                     if 'batched_images' in ph.name:
                         feed_dict[ph] = batch_val['images']
-                    elif 'batched_labels' in ph.labels:
+                    elif 'batched_labels' in ph.name:
                         feed_dict[ph] = batch_val['labels']
 
                 res_acc = tf.get_collection('accuracy')[0]

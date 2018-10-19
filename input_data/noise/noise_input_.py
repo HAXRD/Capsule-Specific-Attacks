@@ -21,7 +21,7 @@ import os
 import numpy as np
 import tensorflow as tf
 
-def inputs(num_gpus, n_repeats, total_size=50, seed=123,split='default'):
+def inputs(n_repeats, batch_size=50, seed=123,split='default'):
     """Construct input for layer visualization.
 
     Here we let `total_size` = `total_batch_size` so that each epoch
@@ -35,9 +35,8 @@ def inputs(num_gpus, n_repeats, total_size=50, seed=123,split='default'):
         the different between each layer we want to visualization.
     
     Args:
-        num_gpus: number of GPUs available.
         n_repeats: number of epochs to create.
-        total_size: number of different initializations for a epoch.
+        batch_size: should be 1 by all means.
         seed: seed to reproduce pseudo randomness.
         split: 'default'
     """
@@ -45,12 +44,9 @@ def inputs(num_gpus, n_repeats, total_size=50, seed=123,split='default'):
     specs = {
         'split': split,
         'n_repeats': n_repeats,
-        'total_batch_size': total_size,
-        'num_gpus': num_gpus,
-        'batch_size': total_size // max(1, num_gpus),
+        'batch_size': batch_size,
         'image_dim': 32,
-        'depth': 3,
-        'num_classes': 10
+        'depth': 3
     }
 
     np.random.seed(seed)
@@ -61,12 +57,12 @@ def inputs(num_gpus, n_repeats, total_size=50, seed=123,split='default'):
 
     # Extract single instance
     t_noise_img = tf.data.Dataset.from_tensor_slices((noise_imgs))
-    # Prefetch `total_batch_size` number of instances
-    t_noise_imgs = t_noise_img.prefetch(buffer_size=specs['total_batch_size'])
     # Create `n_repeats` number of epochs
-    t_noise_imgs = t_noise_imgs.repeat(specs['n_repeats'])
+    t_noise_imgs = t_noise_img.repeat(specs['n_repeats'])
     # Create batched image tensors
     batched_noise_imgs = t_noise_imgs.batch(specs['batch_size'])
+    # Prefetch 1
+    batched_noise_imgs = batched_noise_imgs.prefetch(1)
 
     return batched_noise_imgs, specs
 
