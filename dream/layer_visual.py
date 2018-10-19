@@ -108,6 +108,8 @@ def _cal_grad_tiled(img, t_grad, in_ph_ref, sess, tile_size=512):
 
     Args:
         img: shape (3, 64, 64)
+    Returns:
+        shape (1, 3, 64, 64)
     """
     img = np.expand_dims(img, axis=0) # (1, 64, 64, 3)
     img = np.transpose(img, [0, 3, 1, 2]) # (1, 3, 64, 64)
@@ -173,10 +175,11 @@ def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
     for octave in range(octave_n):
         if octave > 0:
             hw = np.float32(img.shape[:2]) * octave_scale # [64., 64.]
-            img = _resize(img, np.int32(hw)) 
+            img = _resize(img, np.int32(hw)) # (64, 64, 3)
         for i in range(iter_n):
-            g = _cal_grad_tiled(img, t_grad, in_ph_ref, sess)
+            g = _cal_grad_tiled(img, t_grad, in_ph_ref, sess) # (1, 3, 64, 64)
             g /= g.std() + 1e-8
+            g = _squeeze_transpose(g) # (64, 64, 3)
             img += g*step
 
         std_img = _stdvisual(img)
