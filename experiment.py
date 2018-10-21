@@ -144,8 +144,10 @@ def _compute_activation_grads():
 
     visual_tensors = tf.get_collection('visual') # returns a list of k logits tensors,
                                                  # tensors before activation function.
+    for vt in visual_tensors:
+        print('vt name: ', vt.name)
     result_grads = []
-    for logit_t in visual_tensors:
+    for logit_t in visual_tensors[-1:]:
         # write tensor prefix name
         logit_t_name_prefix = '/'.join(logit_t.name.split('/')[:-1]) + '/' \
                               + logit_t.name.split('/')[-1][:-2]
@@ -177,7 +179,7 @@ def _compute_activation_grads():
     print('Gradients computing completed!')
     # flatten the list
     result_grads = [item for sub in result_grads for item in sub]
-
+    
     return result_grads
 
 def run_visual_session(iterator, specs, load_dir, summary_dir, vis_type='naive'):
@@ -276,6 +278,7 @@ def run_test_session(iterator, specs, load_dir, summary_dir):
 
         batch_data = iterator.get_next()
         sess.run(iterator.initializer)
+        accs = []
 
         while True: # epoch loop
             try:
@@ -295,9 +298,10 @@ def run_test_session(iterator, specs, load_dir, summary_dir):
                 accuracy = sess.run(
                     res_acc,
                     feed_dict=feed_dict)
-                print('accuracy {0:.4f}'.format(accuracy))
+                accs.append(accuracy)
             except tf.errors.OutOfRangeError:
-                break
+                break    
+        print('accuracy {0:.4f}'.format(np.mean(accs)))
 
 def test(hparams, data_dir, dataset, model_type, batch_size,
                   summary_dir, max_to_keep):

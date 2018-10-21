@@ -45,7 +45,7 @@ def inputs(n_repeats, batch_size=50, seed=123,split='default'):
         'split': split,
         'n_repeats': n_repeats,
         'batch_size': batch_size,
-        'image_dim': 32,
+        'image_dim': 24,
         'depth': 3
     }
 
