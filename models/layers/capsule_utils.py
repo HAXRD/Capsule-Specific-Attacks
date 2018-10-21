@@ -268,9 +268,8 @@ def capsule(in_tensor, in_dim, in_atoms,
         Tensor of activations for this layer of shape (batch, out_dim, out_atoms).
     """
     with tf.variable_scope(layer_name):
-        weights = variables.weight_variable([
-            in_dim, in_atoms, out_dim * out_atoms
-        ])
+        weights = variables.weight_variable(
+            [in_dim, in_atoms, out_dim * out_atoms])
         biases = variables.bias_variable([out_dim, out_atoms])
         with tf.name_scope('Wx_plus_b'):
             # Depthwise matmul: [b, d, c] @ [d, c, o_c] = [b, d, o_c]

@@ -466,7 +466,7 @@ def train(hparams, data_dir, dataset, model_type, batch_size,
                 while True:
                     try:
                         batch_val = sess.run(batch_data)
-                        print(batch_val['images'].shape) # ==> (5000, 3, 32, 32) x 2
+                        print(batch_val['images'].shape) # ==> (5000, 3, 24, 24) x 2
                         print(batch_val['labels'].shape) # ==> (5000, 10) x 2
                     except tf.errors.OutOfRangeError:
                         break

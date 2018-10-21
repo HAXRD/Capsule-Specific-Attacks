@@ -32,6 +32,7 @@ def _parse_record(record):
     """
     # record specs
     image_dim = 32
+    cropped_image_dim = 24
     depth = 3
     image_bytes = image_dim * image_dim * depth
     label_bytes = 1
@@ -48,7 +49,9 @@ def _parse_record(record):
         tf.strided_slice(uint_data, [label_bytes], [record_bytes]),
         [depth, image_dim, image_dim])
     image = tf.cast(tf.transpose(depth_major_image, [1, 2, 0]), tf.float32)
-    # !!! taking out distort, cropping, but still keeping standardization
+    # !!! taking out distort, but still keeping standardization
+    image = tf.image.resize_image_with_crop_or_pad(
+        image, cropped_image_dim, cropped_image_dim)
     image = tf.image.per_image_standardization(image) # this func requires (HWC)
     # revert back to (CHW)
     image = tf.transpose(image, [2, 0, 1])
@@ -97,7 +100,7 @@ def inputs(split, data_dir, batch_size, max_epochs):
         'split': split,
         'max_epochs': max_epochs,
         'batch_size': batch_size,
-        'image_dim': 32,
+        'image_dim': 24,
         'depth': 3,
         'num_classes': 10
     }

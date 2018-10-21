@@ -50,10 +50,10 @@ def _write_to_visual_dir(std_img, filename, write_dir, fmt='jpeg'):
     print('Image saved to {}'.format(fpath))
 
 def _stdvisual(img, s=0.1):
-    """Normalizes the given image with the shape of (32, 32, 3)
+    """Normalizes the given image with the shape of (24, 24, 3)
 
     Args:
-        img: an image with the shape of (1, 3, 32, 32).
+        img: an image with the shape of (1, 3, 24, 24).
         s: add-on parameter in case the standard = 0.
     Returns:
         img: normalized image.
@@ -64,9 +64,9 @@ def _squeeze_transpose(img):
     """Squeeze out the `batch_size` dimension, then transpose into HWC format.
 
     Args:
-        img: an image with the shape of (1, 3, 32, 32)
+        img: an image with the shape of (1, 3, 24, 24)
     Returns:
-        img: a squeezed and transposed image with the shape of (32, 32, 3)
+        img: a squeezed and transposed image with the shape of (24, 24, 3)
     """
     img = np.squeeze(img, axis=0)
     img = np.transpose(img, [1, 2, 0])
@@ -79,8 +79,8 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
     Args:
         t_grad: the gradient of target objective function w.r.t. the batched
             input placeholder images, actually only 1 image per batch with 
-            the shape of (1, 3, 32, 32) (NCHW)
-        img0: the original noise image (1, 3, 32, 32)
+            the shape of (1, 3, 24, 24) (NCHW)
+        img0: the original noise image (1, 3, 24, 24)
         in_ph_ref: input batched images placeholder, used as the key of feed_dict.
         sess: the running session.
         write_dir: the output directory of the augmented image(s) (after adding 
@@ -102,21 +102,21 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
     _write_to_visual_dir(std_img, std_img_fn, write_dir)
 
 """Multiscale feature visualizations"""
-def _cal_grad_tiled(img, t_grad, in_ph_ref, sess, tile_size=32):
+def _cal_grad_tiled(img, t_grad, in_ph_ref, sess, tile_size=24):
     """Compute the value of tensor t_grad over the image in a tiled way.
     Random shifts are applied to the image to blr tile boundaries over 
     multiple iterations.
 
     Args:
-        img: shape (3, 64, 64)
+        img: shape (3, 48, 48)
     Returns:
-        shape (1, 3, 64, 64)
+        shape (1, 3, 48, 48)
     """
-    img = np.expand_dims(img, axis=0) # (1, 64, 64, 3)
-    img = np.transpose(img, [0, 3, 1, 2]) # (1, 3, 64, 64)
+    img = np.expand_dims(img, axis=0) # (1, 48, 48, 3)
+    img = np.transpose(img, [0, 3, 1, 2]) # (1, 3, 48, 48)
 
     sz = tile_size 
-    h, w = img.shape[-2:] # [64, 64]
+    h, w = img.shape[-2:] # [48, 48]
     sx, sy = np.random.randint(sz, size=2)
     img_shift = np.roll(np.roll(img, sx, 3), sy, 2)
     grad = np.zeros_like(img)
@@ -128,25 +128,13 @@ def _cal_grad_tiled(img, t_grad, in_ph_ref, sess, tile_size=32):
             grad[:, :, y:y+sz, x:x+sz] = g
     return np.roll(np.roll(grad, -sx, 3), -sy, 2)
 
-def tffunc(*argtypes):
-    """Helper that transforms TF-graph generating function into a regular one.
-    See "resize" function below.
-    """
-    placeholders = list(map(tf.placeholder, argtypes))
-    def wrap(f):
-        out = f(*placeholders)
-        def wrapper(*args, **kw):
-            return out.eval(dict(zip(placeholders, args)), session=kw.get('session'))
-        return wrapper
-    return wrap
-
 def _resize(img, size):
     """Resize the image using bilinear iterpolation
     Args:
-        img: (32, 32, 3)
-        size: [64, 64]
+        img: (24, 24, 3)
+        size: [48, 48]
     Returns:
-        resized image (64, 64, 3)
+        resized image (48, 48, 3)
     """
     img = np.expand_dims(img, 0)
     img_t = tf.placeholder(dtype=tf.float32)
@@ -161,8 +149,8 @@ def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
     Args:
         t_grad: the gradient of target objective function w.r.t. the batched
             input placeholder images, actually only 1 image per batch with 
-            the shape of (1, 3, 32, 32) (NCHW)
-        img0: the original noise image (1, 3, 32, 32)
+            the shape of (1, 3, 24, 24) (NCHW)
+        img0: the original noise image (1, 3, 24, 24)
         in_ph_ref: input batched images placeholder, used as the key of feed_dict.
         sess: the running session.
         write_dir: the output directory of the augmented image(s) (after adding 
@@ -173,23 +161,25 @@ def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
         octave_scale: the scale value for each scale.
     """
     write_dir += '/multiscale/'
-    img = img0.copy() # (1, 3, 32, 32)
-    img = _squeeze_transpose(img) # (32, 32, 3)
+    img = img0.copy() # (1, 3, 24, 24)
+    img = _squeeze_transpose(img) # (24, 24, 3)
 
     for octave in range(octave_n):
         if octave > 0:
-            hw = np.float32(img.shape[:2]) * octave_scale # [64., 64.]
-            img = _resize(img, np.int32(hw)) # (64, 64, 3)
+            hw = np.float32(img.shape[:2]) * octave_scale # [48., 48.]
+            img = _resize(img, np.int32(hw)) # (48, 48, 3)
             # img = imresize(img, hw) / 255.
         for i in range(iter_n):
-            g = _cal_grad_tiled(img, t_grad, in_ph_ref, sess) # (1, 3, 64, 64)
+            g = _cal_grad_tiled(img, t_grad, in_ph_ref, sess) # (1, 3, 48, 48)
             g /= g.std() + 1e-8
-            g = _squeeze_transpose(g) # (64, 64, 3)
+            g = _squeeze_transpose(g) # (48, 48, 3)
             img += g*step
 
         std_img = _stdvisual(img)
         std_img_fn = std_img_fn = '-'.join(re.split('/|:', t_grad.name)) + '-octave{}'.format(str(octave))
         _write_to_visual_dir(std_img, std_img_fn, write_dir)
 
-    
-        
+"""Laplacian Pyramid Gradient Normalization"""
+def render_lapnorm(t_grad, img0, in_ph_ref, sess, write_dir,
+                   iter_n=8, step=1.0, octave_n=5, octave_scale=2.0, lap_n=4):
+    pass
