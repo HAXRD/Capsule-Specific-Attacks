@@ -112,14 +112,17 @@ def _update_routing(votes, biases, logit_shape, num_ranks, in_dim, out_dim,
         dtype=tf.float32, size=num_routing, clear_after_read=False)
     logits = tf.fill(logit_shape, 0.0)
     i = tf.constant(0, dtype=tf.int32)
+
     _, logits, activations = tf.while_loop(
         lambda i, logits, activations: i < num_routing,
         _body, 
         loop_vars=[i, logits, activations],
         swap_memory=True)
-    """visual"""
-    for i in range(num_routing):
-        tf.add_to_collection('visual', activations.read(i))
+    
+    stacked_activations = activations.stack()
+    activation_list = tf.split(stacked_activations, num_or_size_splits=num_routing, axis=0)
+    for act in activation_list:
+        tf.add_to_collection('visual', act)
 
     return activations.read(num_routing - 1)
     
