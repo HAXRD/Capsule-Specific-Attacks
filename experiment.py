@@ -411,8 +411,8 @@ def run_train_session(iterator, specs, # Dataset related
                         step_counter % specs['steps_per_epoch'] * 100.0 / specs['steps_per_epoch'],
                         int(total_time // 3600), 
                         int(total_time % 3600 // 60), 
-                        int(total_time % 60)
-                    ))
+                        int(total_time % 60)),
+                        end='\r')
             except tf.errors.OutOfRangeError:
                 break
             # Finished one step
