@@ -354,7 +354,6 @@ def run_train_session(iterator, specs, # Dataset related
         # Declare saver object for future saving
         saver = tf.train.Saver(max_to_keep=max_to_keep)
 
-        s_c = 1
         epoch_time = 0
         total_time = 0
         step_counter = 0
@@ -364,8 +363,6 @@ def run_train_session(iterator, specs, # Dataset related
             step_counter += 1
             
             try:
-                print('running step {}'.format(s_c))
-                s_c += 1
                 # batch_vals = []
                 # for j in range(num_gpus): # GPU loop
                 #     batch_vals.append(sess.run(batch_data))
@@ -408,6 +405,14 @@ def run_train_session(iterator, specs, # Dataset related
                         accuracy, 
                         epoch_time))
                     epoch_time = 0
+                else:
+                    print("running {0} epochs {1:.1f}%, total time ~ {2}:{3}:{4}".format(
+                        step_counter // specs['steps_per_epoch'],
+                        step_counter % specs['steps_per_epoch'] * 100.0 / specs['steps_per_epoch'],
+                        int(total_time // 3600), 
+                        int(total_time % 3600 // 60), 
+                        int(total_time % 60)
+                    ))
             except tf.errors.OutOfRangeError:
                 break
             # Finished one step
