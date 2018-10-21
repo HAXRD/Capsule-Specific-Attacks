@@ -289,7 +289,7 @@ def capsule(in_tensor, in_dim, in_atoms,
                 votes=votes_reshaped,
                 biases=biases, 
                 logit_shape=logit_shape, 
-                num_ranks=1, 
+                num_ranks=4, 
                 in_dim=in_dim, 
                 out_dim=out_dim,
                 **routing_args)

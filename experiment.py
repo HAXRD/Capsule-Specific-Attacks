@@ -33,6 +33,7 @@ import tensorflow as tf
 from input_data.cifar10 import cifar10_input
 from input_data.noise import noise_input_
 from models import cnn_model
+from models import capsule_model
 from dream import layer_visual
 
 FLAGS = tf.flags.FLAGS
@@ -40,9 +41,8 @@ FLAGS = tf.flags.FLAGS
 tf.flags.DEFINE_string('mode', 'train',
                        'train, test, visual, dream')
 
-tf.flags.DEFINE_integer('hparams_override', None,
-                        'A string of form key=value,key=value to override the'
-                        'hparams of this experiment.')
+tf.flags.DEFINE_string('hparams_override', None,
+                        '--hparams_override=num_prime_capsules=64,padding=SAME,leaky=true,remake=false')
 tf.flags.DEFINE_string('data_dir', './data/cifar-10-batches-bin', 
                        'The data directory.')
 tf.flags.DEFINE_string('dataset', 'cifar10',
@@ -64,7 +64,8 @@ tf.flags.DEFINE_integer('n_repeats', 10,
                         'cnn 1806 = 512+1 + 256+1 + 1024+1 + 10+1;'
                         'cap ?')
 models = {
-    'cnn': cnn_model.CNNModel
+    'cnn': cnn_model.CNNModel,
+    'cap': capsule_model.CapsuleModel
 }
 
 def get_batched_dataset(batch_size, max_epochs,
@@ -154,22 +155,25 @@ def _compute_activation_grads():
         # each having the shape of (?, 1, ...)
         splited_logit_t_by_chs = tf.split(logit_t, num_or_size_splits=logit_t.get_shape()[1],
                                           axis=1, name=logit_t_name_prefix + '/split_op')
-
+        """
         last_ch_t_name= '_'.join(splited_logit_t_by_chs[-1].name.split(':'))
         last_ch_obj = tf.reduce_mean(splited_logit_t_by_chs[-1], name=last_ch_t_name+'/obj')
         last_ch_grads = tf.gradients(last_ch_obj, batched_images_t, name=last_ch_t_name+'/grads')
         result_grads.append(last_ch_grads)
         print(splited_logit_t_by_chs[-1], last_ch_obj, batched_images_t, last_ch_grads)
-
-
         """
-        for ch_t in splited_logit_t_by_chs:
+
+        
+        for ch_idx, ch_t in enumerate(splited_logit_t_by_chs[:1]):
             ch_t_name = '_'.join(ch_t.name.split(':'))
             ch_t_obj = tf.reduce_mean(ch_t, name=ch_t_name+'/obj')
             ch_t_grads = tf.gradients(ch_t_obj, batched_images_t, name=ch_t_name+'/grads')
             result_grads.append(ch_t_grads)
-            print(ch_t, ch_t_obj, batched_images_t, ch_t_grads)
-        """
+            # print(ch_t, ch_t_obj, batched_images_t, ch_t_grads)
+            print('Done processing {0} ---- {1:.2f}%'.format(
+                ch_t_name, ch_idx*100/float(len(splited_logit_t_by_chs))))
+        print("")
+        
     print('Gradients computing completed!')
     # flatten the list
     result_grads = [item for sub in result_grads for item in sub]
@@ -350,6 +354,7 @@ def run_train_session(iterator, specs, # Dataset related
         # Declare saver object for future saving
         saver = tf.train.Saver(max_to_keep=max_to_keep)
 
+        s_c = 1
         epoch_time = 0
         total_time = 0
         step_counter = 0
@@ -359,6 +364,8 @@ def run_train_session(iterator, specs, # Dataset related
             step_counter += 1
             
             try:
+                print('running step {}'.format(s_c))
+                s_c += 1
                 # batch_vals = []
                 # for j in range(num_gpus): # GPU loop
                 #     batch_vals.append(sess.run(batch_data))
@@ -481,13 +488,12 @@ def train(hparams, data_dir, dataset, model_type, batch_size,
         # (a list of input tensor placeholders, a list of output tensor placeholders)
         tower_output = model.build_model_on_single_gpu()
         # TODO here
-        """Print stats
-            param_stats = tf.contrib.tfprof.model_analyzer.print_model_analysis(
-                tf.get_default_graph(),
-                tfprof_options=tf.contrib.tfprof.model_analyzer.
-                TRAINABLE_VARS_PARAMS_STAT_OPTIONS)
-            sys.stdout.write('total_params: %d\n' % param_stats.total_parameters)
-        """
+        """Print stats"""
+        param_stats = tf.contrib.tfprof.model_analyzer.print_model_analysis(
+            tf.get_default_graph(),
+            tfprof_options=tf.contrib.tfprof.model_analyzer.TRAINABLE_VARS_PARAMS_STAT_OPTIONS)
+        sys.stdout.write('total_params: %d\n' % param_stats.total_parameters)
+        """"""
         # Clear summary directory, TODO: start train from where left.
         # Call train experiment
         run_train_session(iterator, dataset_specs,

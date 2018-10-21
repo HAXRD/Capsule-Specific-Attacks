@@ -92,6 +92,7 @@ class CapsuleModel(model.Model):
             kernel_size=9,
             stride=2,
             padding=self._hparams.padding,
+            num_routing=1,
             leaky=self._hparams.leaky)
         capsule1_atom_last = tf.transpose(capsule1, [0, 1, 3, 4, 2])
         capsule1_3d = tf.reshape(capsule1_atom_last,
