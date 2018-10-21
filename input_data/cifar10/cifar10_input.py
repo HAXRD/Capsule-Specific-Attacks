@@ -32,6 +32,7 @@ def _parse_record(record):
     """
     # record specs
     image_dim = 32
+    cropped_image_dim = 24
     depth = 3
     image_bytes = image_dim * image_dim * depth
     label_bytes = 1
@@ -48,7 +49,9 @@ def _parse_record(record):
         tf.strided_slice(uint_data, [label_bytes], [record_bytes]),
         [depth, image_dim, image_dim])
     image = tf.cast(tf.transpose(depth_major_image, [1, 2, 0]), tf.float32)
-    # !!! taking out distort, cropping, but still keeping standardization
+    # !!! taking out distort, but still keeping standardization
+    image = tf.image.resize_image_with_crop_or_pad(
+        image, cropped_image_dim, cropped_image_dim)
     image = tf.image.per_image_standardization(image) # this func requires (HWC)
     # revert back to (CHW)
     image = tf.transpose(image, [2, 0, 1])
@@ -81,20 +84,21 @@ def _process_batched_features(feature):
     }
     return batched_features
 
-def inputs(split, data_dir, batch_size, num_gpus):
+def inputs(split, data_dir, batch_size, max_epochs):
     """Construct input for cifar10 experiment.
 
     Args:
         split: 'train' or 'test', which split of dataset to read from.
-        data_dir: path to the cifar10 data directory
-        batch_size: number of images per batch.
+        data_dir: path to the cifar10 data directory.
+        batch_size: total number of images per batch.
+        max_epochs: maximum epochs go through the model.
     Returns:
         batched_features: a dictionary of the input data features.
     """
     # Dataset specs
     specs = {
         'split': split,
-        'total_batch_size': batch_size * num_gpus,
+        'max_epochs': max_epochs,
         'batch_size': batch_size,
         'image_dim': 32,
         'depth': 3,
@@ -111,7 +115,8 @@ def inputs(split, data_dir, batch_size, num_gpus):
         filenames = [
             os.path.join(data_dir, 'test_batch.bin')]
         specs['total_size'] = 10000
-    specs['steps_per_epoch'] = specs['total_size'] // specs['total_batch_size']
+    specs['steps_per_epoch'] = specs['total_size'] // specs['batch_size']
+
     # Fixed Length Record Dataset specifications
     image_bytes = specs['image_dim'] * specs['image_dim'] * specs['depth']
     label_bytes = 1
@@ -120,20 +125,28 @@ def inputs(split, data_dir, batch_size, num_gpus):
     # Declare dataset object
     dataset = tf.data.FixedLengthRecordDataset(
         filenames, record_bytes)
-    # Parse dataset
-    dataset = dataset.map(_parse_record)
-    # Shuffle the data
-    if split == 'train':
-        dataset = dataset.shuffle(buffer_size=10000)
-    # Stack into batches
-    batched_dataset = dataset.batch(batch_size)
-    # Process batched_dataset
-    batched_dataset = batched_dataset.map(_process_batched_features)
+    # Prefetch the dataset, performance purpose
+    dataset = dataset.prefetch(buffer_size=specs['batch_size']*10)
     
+    # Shuffle(train only) and Repeat the dataset size to 'max_epochs'*total_size    
+    if split == 'train':
+        dataset = dataset.apply(tf.contrib.data.shuffle_and_repeat(
+            buffer_size=specs['batch_size']*10, count=specs['max_epochs']))
+    elif split == 'test':
+        dataset = dataset.repeat(specs['max_epochs'])
+    # Parse dataset
+    dataset = dataset.map(_parse_record, num_parallel_calls=3)
+    # Stack into batches
+    batched_dataset = dataset.batch(specs['batch_size'])
+    # Process batched_dataset
+    batched_dataset = batched_dataset.map(_process_batched_features, num_parallel_calls=3)
+    # Prefetch to improve performance
+    batched_dataset = batched_dataset.prefetch(1)
+    specs['image_dim'] = 24
     return batched_dataset, specs
 
 if __name__ == '__main__':
-    dataset, _ = inputs('test', '/Users/xu/Downloads/cifar-10-batches-bin', 100, 1)
+    dataset, _ = inputs('test', '/Users/xu/Downloads/cifar-10-batches-bin', 1, 2)
     iterator = dataset.make_initializable_iterator()
     next_features = iterator.get_next()
 

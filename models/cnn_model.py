@@ -56,6 +56,9 @@ class CNNModel(model.Model):
                                                  verbose=self._hparams.verbose)
                 pre_activation = tf.nn.bias_add(
                     conv, biases, data_format='NCHW', name='logits')
+                """visual"""
+                tf.add_to_collection('visual', pre_activation)
+                
                 relu = tf.nn.relu(pre_activation, name=scope.name)
                 if self._hparams.verbose:
                     tf.summary.histogram('activation', relu)
@@ -67,12 +70,12 @@ class CNNModel(model.Model):
     def build_replica(self):
         """Adds a replica graph ops.
 
-        Builds the architecture of the neural net to derive logits from batched_dataset.
-        The inference graph defined here should involve trainable variables
-        otherwise the optimizer will raise a ValueError.
+        Builds the architecture of the neural net to derive logits from 
+        batched_dataset. The inference graph defined here should involve 
+        trainable variables otherwise the optimizer will raise a ValueError.
 
         Returns:
-            undefined
+            Inferred namedtuple containing (logits, None).
         """
         # Image specs
         image_dim = self._specs['image_dim']
@@ -83,6 +86,7 @@ class CNNModel(model.Model):
         batched_images = tf.placeholder(tf.float32, 
             shape=[None, image_depth, image_dim, image_dim], 
             name='batched_images')
+        """visual"""
         tf.add_to_collection('placeholders', batched_images)
         
         # Add convolutional layers
@@ -97,6 +101,9 @@ class CNNModel(model.Model):
             biases = variables.bias_variable(shape=[1024],
                                              verbose=self._hparams.verbose)
             pre_activation = tf.add(tf.matmul(hidden1, weights), biases, name='logits')
+            """visual"""
+            tf.add_to_collection('visual', pre_activation)
+
             hidden2 = tf.nn.relu(pre_activation, name=scope.name)
         
         # Add fully connected layer 2, activation = None
@@ -108,6 +115,8 @@ class CNNModel(model.Model):
                 shape=[num_classes],
                 verbose=self._hparams.verbose)
             logits = tf.add(tf.matmul(hidden2, weights), biases, name='logits')
+            """visual"""
+            tf.add_to_collection('visual', logits)
         
         # Declare one-hot format placeholder for batched_labels
         batched_labels = tf.placeholder(tf.int32,
