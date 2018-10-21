@@ -100,7 +100,7 @@ def inputs(split, data_dir, batch_size, max_epochs):
         'split': split,
         'max_epochs': max_epochs,
         'batch_size': batch_size,
-        'image_dim': 24,
+        'image_dim': 32,
         'depth': 3,
         'num_classes': 10
     }
@@ -142,7 +142,7 @@ def inputs(split, data_dir, batch_size, max_epochs):
     batched_dataset = batched_dataset.map(_process_batched_features, num_parallel_calls=3)
     # Prefetch to improve performance
     batched_dataset = batched_dataset.prefetch(1)
-
+    specs['image_dim'] = 24
     return batched_dataset, specs
 
 if __name__ == '__main__':
