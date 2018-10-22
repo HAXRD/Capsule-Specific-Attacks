@@ -41,7 +41,7 @@ def _processing(feature):
     }
     return batched_features
 
-def inputs(split, data_dir,batch_size, max_epochs):
+def inputs(split, data_dir, batch_size, max_epochs):
     """Construct input for mnist experiment.
 
     Args:

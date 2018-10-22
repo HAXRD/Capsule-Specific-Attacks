@@ -40,37 +40,38 @@ from dream import layer_visual
 FLAGS = tf.flags.FLAGS
 
 tf.flags.DEFINE_string('mode', 'train',
-                       'train, test, visual, dream')
-
+                       'train, test, naive, multiscale, dream')
 tf.flags.DEFINE_string('hparams_override', None,
                         '--hparams_override=num_prime_capsules=64,padding=SAME,leaky=true,remake=false')
 tf.flags.DEFINE_string('data_dir', './data/cifar-10-batches-bin', 
                        'The data directory.')
 tf.flags.DEFINE_string('dataset', 'cifar10',
-                       'The dataset to use for the experiment.'
-                       'mnist, norb, cifar10.')
+                       'The dataset to use for the experiment.\n'
+                       'mnist, cifar10.')
 tf.flags.DEFINE_string('model', 'cnn',
-                       'The model to use for the experiment.'
-                       'capsule or cnn')
-tf.flags.DEFINE_integer('batch_size', 100, 'Total batch size.')
+                       'The model to use for the experiment.\n'
+                       'cap or cnn')
+tf.flags.DEFINE_integer('batch_size', 100, 
+                        'Total batch size.')
 tf.flags.DEFINE_string('summary_dir', './summary',
                        'Main directory for the experiments.')
 tf.flags.DEFINE_integer('max_to_keep', None, 
                         'Maximum number of checkpoint files to keep.')
 tf.flags.DEFINE_integer('save_epochs', 5, 'How often to save checkpoints.')
-tf.flags.DEFINE_integer('max_epochs', 1500, 'Number of epochs to train.')
-tf.flags.DEFINE_integer('n_repeats', 10, 
-                        'How many repeats of noise dataset to create in'
-                        'order to visualize the available layers (hard coded).'
-                        'cnn 1806 = 512+1 + 256+1 + 1024+1 + 10+1;'
-                        'cap ?')
+tf.flags.DEFINE_integer('max_epochs', 20, 
+                        'Number of epochs to train, test, naive, multiscale or dream.\n',
+                        'train ~ 1000 (20 when debugging);\n',
+                        'test = 1;\n',
+                        'naive > 2000 (cnn), > ? (cap);\n',
+                        'multiscale ~ 5x naive;\n',
+                        'dream ∝ # of given image')
 models = {
     'cnn': cnn_model.CNNModel,
     'cap': capsule_model.CapsuleModel
 }
 
 def get_batched_dataset(batch_size, max_epochs,
-                        data_dir, dataset, depth=3, split='default'):
+                        data_dir, dataset, split='default'):
     """Reads the input data and set the batch_size to 1/`num_gpus`
     of the `batch_size`. 
 
@@ -84,21 +85,29 @@ def get_batched_dataset(batch_size, max_epochs,
         bat: A list of batched dataset
     """
     with tf.device('/gpu:0'):
-        if dataset == 'mnist':
-            batched_dataset, specs = mnist_input.inputs(
-                split, data_dir, batch_size, max_epochs)
-        elif dataset == 'norb':
-            raise NotImplementedError('norb not implemented yet!')
-        elif dataset == 'cifar10':
-            batched_dataset, specs = cifar10_input.inputs(
-                split, data_dir, batch_size, max_epochs)
-        elif dataset == 'noise':
-            batched_noise_images, specs = noise_input_.inputs(
-                max_epochs, 1, depth)
-            return batched_noise_images, specs
+        if split == 'noise':
+            if dataset == 'cifar10':
+                batched_dataset, specs = noise_input_.inputs(
+                    n_repeats=max_epochs)
+            elif dataset == 'mnist':
+                batched_dataset, specs = noise_input_.inputs(
+                    n_repeats=max_epochs,
+                    depth=1)
         else:
-            raise ValueError(
-                'Unexpected dataset {} read!'.format(dataset))
+            if dataset == 'mnist':
+                batched_dataset, specs = mnist_input.inputs(
+                    split=split,
+                    data_dir=data_dir,
+                    batch_size=batch_size,
+                    max_epochs=max_epochs)
+            elif dataset == 'cifar10':
+                batched_dataset, specs = cifar10_input.inputs(
+                    split=split,
+                    data_dir=data_dir,
+                    batch_size=batch_size,
+                    max_epochs=max_epochs)
+            else:
+                raise NotImplementedError('Unexpected dataset read!!')
     return batched_dataset, specs
 
 def find_latest_checkpoint_info(load_dir):
@@ -187,12 +196,14 @@ def _compute_activation_grads():
     return result_grads
 
 def run_visual_session(iterator, specs, load_dir, summary_dir, vis_type='naive'):
-    """
+    """Start visualization session. Producing results to summary_dir.
 
     Args:
         iterator: iterator, dataset iterator.
         specs: dict, dictionary containing dataset specifications.
-        summary_dir: str, directory storing the checkpoints.
+        load_dir: str, directory that contains checkpoints.
+        summary_dir: str, directory storing the resultant images.
+        vis_type: 'naive', 'multiscale', 'pyramid' (TODO)
     """
     # Find latest checkpoint information
     latest_step, latest_ckpt_path = find_latest_checkpoint_info(load_dir)
@@ -211,7 +222,7 @@ def run_visual_session(iterator, specs, load_dir, summary_dir, vis_type='naive')
         sess.run(iterator.initializer)
         # Calculate the gradients
         result_grads = _compute_activation_grads()
-        print(result_grads)
+        print('Number of gradients computed: ', len(result_grads))
 
         for t_idx, t_grad in enumerate(result_grads):
             try:
@@ -226,24 +237,26 @@ def run_visual_session(iterator, specs, load_dir, summary_dir, vis_type='naive')
                 elif vis_type == 'multiscale':
                     layer_visual.render_multiscale(t_grad, batched_images, ph_ref, sess, summary_dir)
                 elif vis_type == 'pyramid':
-                    pass
-                print('{0} {1} {0} {2}%'.format(' '*3, '-'*5, t_idx*100.0/len(result_grads)))
+                    raise NotImplementedError('pyramid not implemented!')
+                else:
+                    raise ValueError("mode type is not one of 'train', 'test', 'naive', 'multiscale', 'pyramid', or 'dream'!")
+                print('{0} {1} {0} {2}%'.format(' '*3, '-'*5, (1+t_idx)*100.0/len(result_grads)))
             except tf.errors.OutOfRangeError:
                 break
 
-
 def visual(hparams, dataset, model_type,
            batch_size, summary_dir, 
-           n_repeats, vis_type='naive'):
+           max_epochs, vis_type='naive'):
     """Visualize available layers given noise images.
 
     Args:
-        hparams:
-        dataset:
-        model_type:
-        batch_size:
-        summary_dir:
-        n_repeats:
+        hparams: The hyperparameters to build the model graph.
+        dataset: The name of the dataset for the experiments.
+        model_type: The name of the model architecture.
+        batch_size: Total batch size, will be distributed to `num_gpus` GPUs.
+        summary_dir: The directory to write summaries and save the model.
+        max_epochs: Maximum epochs to train.
+        vis_type: 'naive', 'multiscale', 'pyramid' (TODO)
     """
     load_dir = summary_dir + '/train/'
     summary_dir += '/visual/'
@@ -251,22 +264,23 @@ def visual(hparams, dataset, model_type,
     # Declare the empty model graph
     with tf.Graph().as_default():
         # Get batched dataset and declare initializable iterator
-        if dataset == 'cifar10':
-            batched_dataset, dataset_specs = get_batched_dataset(
-                    1, n_repeats, None, 3, 'noise')
-        elif dataset == 'mnist':
-            batched_dataset, dataset_specs = get_batched_dataset(
-                    1, n_repeats, None, 1, 'noise')
+        batched_dataset, specs = get_batched_dataset(
+            batch_size=batch_size,
+            max_epochs=max_epochs,
+            data_dir=None,
+            dataset=dataset,
+            split='noise')
         iterator = batched_dataset.make_initializable_iterator()
         # Call visual experiment
-        run_visual_session(iterator, dataset_specs, load_dir, summary_dir, vis_type)
+        run_visual_session(iterator, specs, load_dir, summary_dir, vis_type)
 
 def run_test_session(iterator, specs, load_dir, summary_dir):
-    """
+    """Find latest checkpoint and load the graph and variables.
 
     Args:
         iterator: iterator, dataset iterator.
         specs: dict, dictionary containing dataset specifications.
+        load_dir: str, directory that contains checkpoints.
         summary_dir: str, directory storing the checkpoints.
     Raises:
         ckpt files not found.
@@ -278,6 +292,7 @@ def run_test_session(iterator, specs, load_dir, summary_dir):
     else:
         print('Found ckpt at step {}'.format(latest_step))
         latest_ckpt_meta_path = latest_ckpt_path + '.meta'
+
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         # Import compute graph
         saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
@@ -312,7 +327,7 @@ def run_test_session(iterator, specs, load_dir, summary_dir):
         print('accuracy {0:.4f}'.format(np.mean(accs)))
 
 def test(hparams, data_dir, dataset, model_type, batch_size,
-                  summary_dir, max_to_keep):
+                  summary_dir, max_to_keep, max_epochs):
     """Restore the graph and variables, and evaluate the the metrics.
 
     Args:
@@ -323,6 +338,7 @@ def test(hparams, data_dir, dataset, model_type, batch_size,
         batch_size: Total batch size, will be distributed to `num_gpus` GPUs.
         summary_dir: The directory to write summaries and save the model.
         max_to_keep: Maximum checkpoint files to keep.
+        max_epochs: Maximum epochs to train.
     """
     load_dir = summary_dir + '/train/'
     summary_dir += '/test/'
@@ -330,16 +346,19 @@ def test(hparams, data_dir, dataset, model_type, batch_size,
     # Declare the empty model graph
     with tf.Graph().as_default():
         # Get batched dataset and declare initializable iterator
-        batched_dataset, dataset_specs = get_batched_dataset(
-                batch_size, 1, data_dir, dataset, 'test')
+        batched_dataset, specs = get_batched_dataset(
+            batch_size=batch_size,
+            max_epochs=max_epochs,
+            data_dir=data_dir,
+            dataset=dataset,
+            split='test')
         iterator = batched_dataset.make_initializable_iterator()
         # Call test experiment
-        run_test_session(iterator, dataset_specs, load_dir, summary_dir)
-    pass
+        run_test_session(iterator, specs, load_dir, summary_dir)
 
 def run_train_session(iterator, specs, # Dataset related
                       summary_dir, max_to_keep, # Checkpoint related
-                      tower_output, save_epochs, max_epochs): # Model related
+                      tower_output, save_epochs): # Model related
     """Starts a session, 
 
     Args:
@@ -351,7 +370,6 @@ def run_train_session(iterator, specs, # Dataset related
         tower_output: namedtuple, TowerResult('inferred', 'train_op', 
                                     'summary', 'correct', 'accuracy')
         save_epochs: scalar, how often to save the model
-        max_epochs: scalar, maximum number of epochs
     """
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         # Declare summary writer and save the graph in the meanwhile.
@@ -433,26 +451,6 @@ def run_train_session(iterator, specs, # Dataset related
             int(total_time % 3600 // 60), 
             int(total_time % 60),
             accuracy))
-        """Debug
-
-            for i in range(max_epochs): # epochs loop
-                # Intialize iterator for each epoch
-                sess.run(iterator.initializer) 
-                # For each epoch, we can at most run the loop 
-                # 50000/100=500 times
-                counter = 0
-                while True:
-                    try:
-                        for j in range(num_gpus): # gpu loop
-                            # Get single batch data (a dictionary)
-                            batch_val = sess.run(batch_data)
-                            print(batch_val['images'].shape)
-                            print(batch_val['labels'].shape)
-                        counter += 1
-                    except tf.errors.OutOfRangeError:
-                        break
-                print(counter) # ==> 500
-        """
 
 def train(hparams, data_dir, dataset, model_type, batch_size,
                    summary_dir, max_to_keep,
@@ -479,28 +477,16 @@ def train(hparams, data_dir, dataset, model_type, batch_size,
 
     # Declare the empty model graph
     with tf.Graph().as_default():
-        """ Simple example to load batched input
-
-            # total size for test = 10,000
-            batched_dataset = cifar10_input.inputs('test', data_dir, 5000) 
-            iterator = batched_dataset.make_initializable_iterator()
-            batch_data = iterator.get_next()
-            with tf.Session() as sess:
-                sess.run(iterator.initializer)
-                while True:
-                    try:
-                        batch_val = sess.run(batch_data)
-                        print(batch_val['images'].shape) # ==> (5000, 3, 24, 24) x 2
-                        print(batch_val['labels'].shape) # ==> (5000, 10) x 2
-                    except tf.errors.OutOfRangeError:
-                        break
-        """
         # Get batched dataset and declare initializable iterator
-        distributed_batched_dataset, dataset_specs = get_batched_dataset(
-            batch_size, max_epochs, data_dir, dataset, 'train')
-        iterator = distributed_batched_dataset.make_initializable_iterator()
-        # Initialize model with hparams and dataset_specs
-        model = models[model_type](hparams, dataset_specs)
+        batched_dataset, specs = get_batched_dataset(
+            batch_size=batch_size,
+            max_epochs=max_epochs,
+            data_dir=data_dir,
+            dataset=dataset,
+            split='train')
+        iterator = batched_dataset.make_initializable_iterator()
+        # Initialize model with hparams and specs
+        model = models[model_type](hparams, specs)
         # Build a model on multiple gpus and returns a tuple of 
         # (a list of input tensor placeholders, a list of output tensor placeholders)
         tower_output = model.build_model_on_single_gpu()
@@ -513,9 +499,9 @@ def train(hparams, data_dir, dataset, model_type, batch_size,
         """"""
         # Clear summary directory, TODO: start train from where left.
         # Call train experiment
-        run_train_session(iterator, dataset_specs,
+        run_train_session(iterator, specs,
                           summary_dir, max_to_keep,
-                          tower_output, save_epochs, max_epochs)
+                          tower_output, save_epochs)
 
 def default_hparams():
     """Builds an HParams object with default hperparameters."""
@@ -542,18 +528,16 @@ def main(_):
                        FLAGS.save_epochs, FLAGS.max_epochs)
     elif FLAGS.mode == 'test':
         test(hparams, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.batch_size,
-                      FLAGS.summary_dir, FLAGS.max_to_keep)
+                      FLAGS.summary_dir, FLAGS.max_to_keep, FLAGS.max_epochs)
     elif FLAGS.mode == 'naive' or FLAGS.mode == 'multiscale' or FLAGS.mode == 'pyramid':
         visual(hparams, FLAGS.dataset, FLAGS.model,
                FLAGS.batch_size, FLAGS.summary_dir,
-               FLAGS.n_repeats, FLAGS.mode)
+               FLAGS.max_epochs, FLAGS.mode)
     elif FLAGS.mode == 'dream':
-        pass
+        raise NotImplementedError('dream not implemented!')
     else:
-        raise NotImplementedError(
+        raise ValueError(
             "No matching mode found for '{}'".format(FLAGS.mode))
     
-
-
 if __name__ == '__main__':
     tf.app.run()

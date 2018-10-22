@@ -21,7 +21,7 @@ import os
 import numpy as np
 import tensorflow as tf
 
-def inputs(n_repeats, batch_size=50, depth=3, seed=123, split='default'):
+def inputs(n_repeats, depth=3, split='noise', batch_size=1, seed=123):
     """Construct input for layer visualization.
 
     Here we let `total_size` = `total_batch_size` so that each epoch
@@ -36,10 +36,10 @@ def inputs(n_repeats, batch_size=50, depth=3, seed=123, split='default'):
     
     Args:
         n_repeats: number of epochs to create.
+        depth: number of channels of noise images.
+        split: 'noise'
         batch_size: should be 1 by all means.
         seed: seed to reproduce pseudo randomness.
-        depth: number of channels of noise images.
-        split: 'default'
     """
     # Dataset specs
     specs = {
