@@ -86,7 +86,7 @@ def get_batched_dataset(batch_size, max_epochs,
     with tf.device('/gpu:0'):
         if dataset == 'mnist':
             batched_dataset, specs = mnist_input.inputs(
-                split, batch_size, max_epochs)
+                split, data_dir, batch_size, max_epochs)
         elif dataset == 'norb':
             raise NotImplementedError('norb not implemented yet!')
         elif dataset == 'cifar10':

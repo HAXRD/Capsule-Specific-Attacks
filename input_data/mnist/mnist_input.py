@@ -13,7 +13,6 @@
 # limitations under the License.
 # ==============================================================================
 import tensorflow as tf 
-mnist = tf.keras.datasets.mnist
 
 def _cropping(image, label):
     
@@ -40,7 +39,7 @@ def _processing(feature):
     }
     return batched_features
 
-def inputs(split, batch_size, max_epochs):
+def inputs(split, data_dir,batch_size, max_epochs):
     """Construct input for mnist experiment.
 
     Args:
@@ -60,13 +59,14 @@ def inputs(split, batch_size, max_epochs):
         'depth': 3, 
         'num_classes': 10
     }
-
-    if split == 'train':
-        (images, labels), (_, _) = mnist.load_data()
-        specs['total_size'] = 60000
-    else:
-        (_, _), (images, labels) = mnist.load_data()
-        specs['total_size'] = 10000
+    
+    with np.load(os.path.join(data_dir, 'mnist.npz')) as f:
+        if split == 'train':
+            images, labels = f['x_train'], f['y_train']
+            specs['total_size'] = 60000
+        else:
+            images, labels = f['x_test'], f['y_test']
+            specs['total_size'] = 10000
     
     assert images.shape[0] == labels.shape[0]
     images = images / 255.0
