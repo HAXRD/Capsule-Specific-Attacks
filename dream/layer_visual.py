@@ -28,6 +28,7 @@ import os
 
 import numpy as np 
 import tensorflow as tf 
+from scipy import ndimage
 
 """Naive feature visualizations"""
 def _write_to_visual_dir(std_img, filename, write_dir, fmt='jpeg'):
@@ -101,8 +102,12 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
     std_img = _stdvisual(img)
     std_img_fn = '-'.join(re.split('/|:', t_grad.name))
     write_dir += '/naive/'
-
     _write_to_visual_dir(std_img, std_img_fn, write_dir)
+
+    scaled_img = ndimage.zoom(std_img, 5.0)
+    scaled_img_fn = '5x-' + std_img_fn
+    _write_to_visual_dir(scaled_img, scaled_img_fn, write_dir)
+
 
 """Multiscale feature visualizations"""
 def _cal_grad_tiled(img, t_grad, in_ph_ref, sess, tile_size=24):
