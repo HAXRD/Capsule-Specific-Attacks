@@ -13,6 +13,8 @@
 # limitations under the License.
 # ==============================================================================
 import tensorflow as tf 
+import numpy as np
+import os
 
 def _cropping(image, label):
     
@@ -56,7 +58,7 @@ def inputs(split, data_dir,batch_size, max_epochs):
         'max_epochs': max_epochs,
         'batch_size': batch_size,
         'image_dim': 28, 
-        'depth': 3, 
+        'depth': 1, 
         'num_classes': 10
     }
     
@@ -67,7 +69,7 @@ def inputs(split, data_dir,batch_size, max_epochs):
         else:
             images, labels = f['x_test'], f['y_test']
             specs['total_size'] = 10000
-    
+    specs['steps_per_epoch'] = specs['total_size'] // specs['batch_size'] 
     assert images.shape[0] == labels.shape[0]
     images = images / 255.0
     

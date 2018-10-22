@@ -70,7 +70,7 @@ models = {
 }
 
 def get_batched_dataset(batch_size, max_epochs,
-                        data_dir, dataset, split='default'):
+                        data_dir, dataset, depth=3, split='default'):
     """Reads the input data and set the batch_size to 1/`num_gpus`
     of the `batch_size`. 
 
@@ -94,7 +94,7 @@ def get_batched_dataset(batch_size, max_epochs,
                 split, data_dir, batch_size, max_epochs)
         elif dataset == 'noise':
             batched_noise_images, specs = noise_input_.inputs(
-                max_epochs, 1)
+                max_epochs, 1, depth)
             return batched_noise_images, specs
         else:
             raise ValueError(
@@ -172,11 +172,12 @@ def _compute_activation_grads():
         for ch_idx, ch_t in enumerate(splited_logit_t_by_chs):
             ch_t_name = '_'.join(ch_t.name.split(':'))
             ch_t_obj = tf.reduce_mean(ch_t, name=ch_t_name+'/obj')
-            ch_t_grads = tf.gradients(ch_t_obj, batched_images_t, name='gradients/' + ch_t_name)
+            # ch_t_grads = tf.gradients(ch_t_obj, batched_images_t, name='gradients/' + ch_t_name)
+            ch_t_grads = tf.gradients(ch_t_obj, batched_images_t)
             result_grads.append(ch_t_grads)
             # print(ch_t, ch_t_obj, batched_images_t, ch_t_grads)
             print('Done processing {0} ---- {1:.2f}%'.format(
-                ch_t_name, ch_idx*100/float(len(splited_logit_t_by_chs))))
+                ch_t_name, (1+ch_idx)*100/float(len(splited_logit_t_by_chs))))
         print("")
         
     print('Gradients computing completed!')
@@ -250,8 +251,12 @@ def visual(hparams, dataset, model_type,
     # Declare the empty model graph
     with tf.Graph().as_default():
         # Get batched dataset and declare initializable iterator
-        batched_dataset, dataset_specs = get_batched_dataset(
-            1, n_repeats, None, 'noise')
+        if dataset == 'cifar10':
+            batched_dataset, dataset_specs = get_batched_dataset(
+                    1, n_repeats, None, 3, 'noise')
+        elif dataset == 'mnist':
+            batched_dataset, dataset_specs = get_batched_dataset(
+                    1, n_repeats, None, 1, 'noise')
         iterator = batched_dataset.make_initializable_iterator()
         # Call visual experiment
         run_visual_session(iterator, dataset_specs, load_dir, summary_dir, vis_type)
@@ -326,7 +331,7 @@ def test(hparams, data_dir, dataset, model_type, batch_size,
     with tf.Graph().as_default():
         # Get batched dataset and declare initializable iterator
         batched_dataset, dataset_specs = get_batched_dataset(
-            batch_size, 1, data_dir, dataset, 'test')
+                batch_size, 1, data_dir, dataset, 'test')
         iterator = batched_dataset.make_initializable_iterator()
         # Call test experiment
         run_test_session(iterator, dataset_specs, load_dir, summary_dir)
