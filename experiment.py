@@ -43,7 +43,7 @@ tf.flags.DEFINE_string('mode', 'train',
                        'train, test, naive, multiscale, dream')
 tf.flags.DEFINE_string('hparams_override', None,
                         '--hparams_override=num_prime_capsules=64,padding=SAME,leaky=true,remake=false')
-tf.flags.DEFINE_string('data_dir', './data/cifar-10-batches-bin', 
+tf.flags.DEFINE_string('data_dir', None, 
                        'The data directory.')
 tf.flags.DEFINE_string('dataset', 'cifar10',
                        'The dataset to use for the experiment.\n'
@@ -59,11 +59,11 @@ tf.flags.DEFINE_integer('max_to_keep', None,
                         'Maximum number of checkpoint files to keep.')
 tf.flags.DEFINE_integer('save_epochs', 5, 'How often to save checkpoints.')
 tf.flags.DEFINE_integer('max_epochs', 20, 
-                        'Number of epochs to train, test, naive, multiscale or dream.\n',
-                        'train ~ 1000 (20 when debugging);\n',
-                        'test = 1;\n',
-                        'naive > 2000 (cnn), > ? (cap);\n',
-                        'multiscale ~ 5x naive;\n',
+                        'Number of epochs to train, test, naive, multiscale or dream.\n'
+                        'train ~ 1000 (20 when debugging);\n'
+                        'test = 1;\n'
+                        'naive > 2000 (cnn), > ? (cap);\n'
+                        'multiscale ~ 5x naive;\n'
                         'dream ∝ # of given image')
 models = {
     'cnn': cnn_model.CNNModel,
@@ -158,7 +158,7 @@ def _compute_activation_grads():
     for vt in visual_tensors:
         print('vt name: ', vt.name)
     result_grads = []
-    for logit_t in visual_tensors:
+    for logit_t in visual_tensors[-1:]:
         # write tensor prefix name
         logit_t_name_prefix = '/'.join(logit_t.name.split('/')[:-1]) + '/' \
                               + logit_t.name.split('/')[-1][:-2]
@@ -176,13 +176,13 @@ def _compute_activation_grads():
         print(splited_logit_t_by_chs[-1], last_ch_obj, batched_images_t, last_ch_grads)
         """
         # take first 5 splited channels
-        splited_logit_t_by_chs = splited_logit_t_by_chs[:5]
+        splited_logit_t_by_chs = splited_logit_t_by_chs
 
         for ch_idx, ch_t in enumerate(splited_logit_t_by_chs):
             ch_t_name = '_'.join(ch_t.name.split(':'))
             ch_t_obj = tf.reduce_mean(ch_t, name=ch_t_name+'/obj')
-            # ch_t_grads = tf.gradients(ch_t_obj, batched_images_t, name='gradients/' + ch_t_name)
-            ch_t_grads = tf.gradients(ch_t_obj, batched_images_t)
+            ch_t_grads = tf.gradients(ch_t_obj, batched_images_t, name='gradients/' + ch_t_name)
+            #ch_t_grads = tf.gradients(ch_t_obj, batched_images_t)
             result_grads.append(ch_t_grads)
             # print(ch_t, ch_t_obj, batched_images_t, ch_t_grads)
             print('Done processing {0} ---- {1:.2f}%'.format(
@@ -240,7 +240,7 @@ def run_visual_session(iterator, specs, load_dir, summary_dir, vis_type='naive')
                     raise NotImplementedError('pyramid not implemented!')
                 else:
                     raise ValueError("mode type is not one of 'train', 'test', 'naive', 'multiscale', 'pyramid', or 'dream'!")
-                print('{0} {1} {0} {2}%'.format(' '*3, '-'*5, (1+t_idx)*100.0/len(result_grads)))
+                print('\n{0} {1} {0} {2}%'.format(' '*3, '-'*5, (1+t_idx)*100.0/len(result_grads)))
             except tf.errors.OutOfRangeError:
                 break
 
