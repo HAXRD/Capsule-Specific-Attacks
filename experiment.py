@@ -147,7 +147,7 @@ def _compute_activation_grads():
     for vt in visual_tensors:
         print('vt name: ', vt.name)
     result_grads = []
-    for logit_t in visual_tensors[-1:]:
+    for logit_t in visual_tensors:
         # write tensor prefix name
         logit_t_name_prefix = '/'.join(logit_t.name.split('/')[:-1]) + '/' \
                               + logit_t.name.split('/')[-1][:-2]
@@ -164,12 +164,13 @@ def _compute_activation_grads():
         result_grads.append(last_ch_grads)
         print(splited_logit_t_by_chs[-1], last_ch_obj, batched_images_t, last_ch_grads)
         """
+        # take first 5 splited channels
+        splited_logit_t_by_chs = splited_logit_t_by_chs[:5]
 
-        
-        for ch_idx, ch_t in enumerate(splited_logit_t_by_chs[:1]):
+        for ch_idx, ch_t in enumerate(splited_logit_t_by_chs):
             ch_t_name = '_'.join(ch_t.name.split(':'))
             ch_t_obj = tf.reduce_mean(ch_t, name=ch_t_name+'/obj')
-            ch_t_grads = tf.gradients(ch_t_obj, batched_images_t, name=ch_t_name+'/grads')
+            ch_t_grads = tf.gradients(ch_t_obj, batched_images_t, name='gradients/' + ch_t_name)
             result_grads.append(ch_t_grads)
             # print(ch_t, ch_t_obj, batched_images_t, ch_t_grads)
             print('Done processing {0} ---- {1:.2f}%'.format(
@@ -209,7 +210,7 @@ def run_visual_session(iterator, specs, load_dir, summary_dir, vis_type='naive')
         result_grads = _compute_activation_grads()
         print(result_grads)
 
-        for t_grad in result_grads:
+        for t_idx, t_grad in enumerate(result_grads):
             try:
                 batched_images = sess.run(batch_data)
 
@@ -223,7 +224,7 @@ def run_visual_session(iterator, specs, load_dir, summary_dir, vis_type='naive')
                     layer_visual.render_multiscale(t_grad, batched_images, ph_ref, sess, summary_dir)
                 elif vis_type == 'pyramid':
                     pass
-                    
+                print('{0} {1} {0} {2}%'.format(' '*3, '-'*5, t_idx*100.0/len(result_grads)))
             except tf.errors.OutOfRangeError:
                 break
 

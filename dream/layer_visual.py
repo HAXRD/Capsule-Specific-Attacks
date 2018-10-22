@@ -46,8 +46,9 @@ def _write_to_visual_dir(std_img, filename, write_dir, fmt='jpeg'):
     if not os.path.exists(write_dir):
         os.makedirs(write_dir)
     fpath = os.path.join(write_dir, filename + '.' + fmt)
+    fpath = '/'.join([s for s in fpath.split('/') if len(s) > 0])
     img.save(fpath, format=fmt)
-    print('Image saved to {}'.format(fpath))
+    print('Image saved to {}'.format(fpath), end='\r')
 
 def _stdvisual(img, s=0.1):
     """Normalizes the given image with the shape of (24, 24, 3)
