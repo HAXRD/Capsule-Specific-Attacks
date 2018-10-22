@@ -39,7 +39,9 @@ def _write_to_visual_dir(std_img, filename, write_dir, fmt='jpeg'):
         write_dir: saving directory.
         fmt: image format.
     """
-    arr = np.uint8(np.clip(std_img, 0, 1) * 255)
+    std_img = np.squeeze(std_img)
+    arr = np.uint8(np.clip(std_img, 0, 1) * 255) 
+    print(std_img.shape)
     f = BytesIO()
     img = PIL.Image.fromarray(arr)
 
