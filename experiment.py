@@ -30,6 +30,7 @@ import PIL.Image
 import numpy as np 
 import tensorflow as tf 
 
+from input_data.mnist import mnist_input
 from input_data.cifar10 import cifar10_input
 from input_data.noise import noise_input_
 from models import cnn_model
@@ -84,7 +85,8 @@ def get_batched_dataset(batch_size, max_epochs,
     """
     with tf.device('/gpu:0'):
         if dataset == 'mnist':
-            raise NotImplementedError('mnist not implemented yet!')
+            batched_dataset, specs = mnist_input.inputs(
+                split, batch_size, max_epochs)
         elif dataset == 'norb':
             raise NotImplementedError('norb not implemented yet!')
         elif dataset == 'cifar10':
