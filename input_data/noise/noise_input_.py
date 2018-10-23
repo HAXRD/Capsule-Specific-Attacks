@@ -21,6 +21,12 @@ import os
 import numpy as np
 import tensorflow as tf
 
+def _process(batched_noise_imgs):
+    feature = {
+        'images': batched_noise_imgs
+    }
+    return feature
+
 def inputs(n_repeats, depth=3, split='noise', batch_size=1, seed=123):
     """Construct input for layer visualization.
 
@@ -62,10 +68,12 @@ def inputs(n_repeats, depth=3, split='noise', batch_size=1, seed=123):
     t_noise_imgs = t_noise_img.repeat(specs['n_repeats'])
     # Create batched image tensors
     batched_noise_imgs = t_noise_imgs.batch(specs['batch_size'])
+    # Convert to feature
+    batched_dataset = batched_noise_imgs.map(_process)
     # Prefetch 1
-    batched_noise_imgs = batched_noise_imgs.prefetch(1)
+    batched_dataset = batched_dataset.prefetch(1)
 
-    return batched_noise_imgs, specs
+    return batched_dataset, specs
 
 if __name__ == '__main__':
     dataset, _ = inputs(2, 1)

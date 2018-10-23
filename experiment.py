@@ -237,20 +237,20 @@ def run_visual_session(iterator, specs, load_dir, summary_dir, vis_or_dream_type
 
         for t_idx, t_grad in enumerate(result_grads):
             try:
-                batched_images = sess.run(batch_data)
+                batch_val = sess.run(batch_data)
 
                 placeholders = tf.get_collection('placeholders')
                 for ph in placeholders:
                     if 'batched_images' in ph.name:
                         ph_ref = ph 
                 if vis_or_dream_type == 'naive':
-                    layer_visual.render_naive(t_grad, batched_images, ph_ref, sess, write_dir)
+                    layer_visual.render_naive(t_grad, batch_val['images'], ph_ref, sess, write_dir)
                 elif vis_or_dream_type == 'multiscale':
-                    layer_visual.render_multiscale(t_grad, batched_images, ph_ref, sess, write_dir)
+                    layer_visual.render_multiscale(t_grad, batch_val['images'], ph_ref, sess, write_dir)
                 elif vis_or_dream_type == 'pyramid':
                     raise NotImplementedError('pyramid not implemented!')
                 elif vis_or_dream_type == 'dream':
-                    layer_visual.render_naive(t_grad, batched_images, ph_ref, sess, write_dir)
+                    layer_visual.render_naive(t_grad, batch_val['images'], ph_ref, sess, write_dir)
                 else:
                     raise ValueError("mode type is not one of 'train', 'test', 'naive', 'multiscale', 'pyramid', or 'dream'!")
                 print('\n{0} {1} {0} {2}%'.format(' '*3, '-'*5, (1+t_idx)*100.0/len(result_grads)))

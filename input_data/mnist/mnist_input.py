@@ -125,7 +125,7 @@ def dream_inputs(split, data_dir, batch_size, max_epochs):
         'num_classes': 10
     }
     with np.load(os.path.join(data_dir, 'mnist.npz')) as f:
-        images, labels = f['x_{}'.format(split)], f['y_{}'.format(split)]
+        images, labels = f['x_test'], f['y_test']
         assert images.shape[0] == labels.shape[0]
         specs['total_size'] = images.shape[0]
     specs['steps_per_epoch'] = specs['total_size'] // specs['batch_size']
