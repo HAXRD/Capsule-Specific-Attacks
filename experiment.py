@@ -93,7 +93,16 @@ def get_batched_dataset(batch_size, max_epochs,
                 batched_dataset, specs = noise_input_.inputs(
                     n_repeats=max_epochs,
                     depth=1)
-        else:
+        elif split == 'dream':
+            if dataset == 'cifar10':
+                raise NotImplementedError('cifar10 not implemented!')
+            elif dataset == 'mnist':
+                batched_dataset, specs = mnist_input.dream_inputs(
+                    split=split,
+                    data_dir=data_dir,
+                    batch_size=batch_size,
+                    max_epochs=max_epochs)
+        elif split == 'train' or split == 'test':
             if dataset == 'mnist':
                 batched_dataset, specs = mnist_input.inputs(
                     split=split,
@@ -106,8 +115,8 @@ def get_batched_dataset(batch_size, max_epochs,
                     data_dir=data_dir,
                     batch_size=batch_size,
                     max_epochs=max_epochs)
-            else:
-                raise NotImplementedError('Unexpected dataset read!!')
+        else:
+            raise NotImplementedError('Unexpected dataset read!!')
     return batched_dataset, specs
 
 def find_latest_checkpoint_info(load_dir):
@@ -196,7 +205,7 @@ def _compute_activation_grads():
     
     return result_grads
 
-def run_visual_session(iterator, specs, load_dir, summary_dir, vis_type='naive'):
+def run_visual_session(iterator, specs, load_dir, summary_dir, vis_or_dream_type='naive'):
     """Start visualization session. Producing results to summary_dir.
 
     Args:
@@ -204,8 +213,9 @@ def run_visual_session(iterator, specs, load_dir, summary_dir, vis_type='naive')
         specs: dict, dictionary containing dataset specifications.
         load_dir: str, directory that contains checkpoints.
         summary_dir: str, directory storing the resultant images.
-        vis_type: 'naive', 'multiscale', 'pyramid' (TODO)
+        vis_or_dream_type: 'naive', 'multiscale', 'pyramid' (TODO) or 'dream'
     """
+    write_dir = os.path.join(summary_dir, vis_or_dream_type)
     # Find latest checkpoint information
     latest_step, latest_ckpt_path = find_latest_checkpoint_info(load_dir)
     if latest_step == -1 or latest_ckpt_path == None:
@@ -233,47 +243,55 @@ def run_visual_session(iterator, specs, load_dir, summary_dir, vis_type='naive')
                 for ph in placeholders:
                     if 'batched_images' in ph.name:
                         ph_ref = ph 
-                if vis_type == 'naive':
-                    layer_visual.render_naive(t_grad, batched_images, ph_ref, sess, summary_dir)
-                elif vis_type == 'multiscale':
-                    layer_visual.render_multiscale(t_grad, batched_images, ph_ref, sess, summary_dir)
-                elif vis_type == 'pyramid':
+                if vis_or_dream_type == 'naive':
+                    layer_visual.render_naive(t_grad, batched_images, ph_ref, sess, write_dir)
+                elif vis_or_dream_type == 'multiscale':
+                    layer_visual.render_multiscale(t_grad, batched_images, ph_ref, sess, write_dir)
+                elif vis_or_dream_type == 'pyramid':
                     raise NotImplementedError('pyramid not implemented!')
+                elif vis_or_dream_type == 'dream':
+                    layer_visual.render_naive(t_grad, batched_images, ph_ref, sess, write_dir)
                 else:
                     raise ValueError("mode type is not one of 'train', 'test', 'naive', 'multiscale', 'pyramid', or 'dream'!")
                 print('\n{0} {1} {0} {2}%'.format(' '*3, '-'*5, (1+t_idx)*100.0/len(result_grads)))
             except tf.errors.OutOfRangeError:
                 break
 
-def visual(hparams, dataset, model_type,
+def visual(dataset, model_type,
            batch_size, summary_dir, 
-           max_epochs, vis_type='naive'):
+           max_epochs, vis_or_dream_type='naive'):
     """Visualize available layers given noise images.
 
     Args:
-        hparams: The hyperparameters to build the model graph.
         dataset: The name of the dataset for the experiments.
         model_type: The name of the model architecture.
         batch_size: Total batch size, will be distributed to `num_gpus` GPUs.
         summary_dir: The directory to write summaries and save the model.
         max_epochs: Maximum epochs to train.
-        vis_type: 'naive', 'multiscale', 'pyramid' (TODO)
+        vis_or_dream_type: 'naive', 'multiscale', 'pyramid' (TODO) or 'dream'
     """
     load_dir = summary_dir + '/train/'
     summary_dir += '/visual/'
-
+    possible_vis_types = ['naive', 'multiscale', 'pyramid']
+    possible_dream_types = ['dream']
     # Declare the empty model graph
     with tf.Graph().as_default():
         # Get batched dataset and declare initializable iterator
+        if vis_or_dream_type in possible_vis_types:
+            split = 'noise'
+        elif vis_or_dream_type in possible_dream_types:
+            split = 'dream'
+        else:
+            raise ValueError("{} is not one of 'naive', 'multiscale', 'pyramid' or 'dream'".format(vis_or_dream_type))
         batched_dataset, specs = get_batched_dataset(
             batch_size=batch_size,
             max_epochs=max_epochs,
             data_dir=None,
             dataset=dataset,
-            split='noise')
+            split=split)
         iterator = batched_dataset.make_initializable_iterator()
         # Call visual experiment
-        run_visual_session(iterator, specs, load_dir, summary_dir, vis_type)
+        run_visual_session(iterator, specs, load_dir, summary_dir, vis_or_dream_type)
 
 def run_test_session(iterator, specs, load_dir, summary_dir):
     """Find latest checkpoint and load the graph and variables.
@@ -327,12 +345,11 @@ def run_test_session(iterator, specs, load_dir, summary_dir):
                 break    
         print('accuracy {0:.4f}'.format(np.mean(accs)))
 
-def test(hparams, data_dir, dataset, model_type, batch_size,
-                  summary_dir, max_to_keep, max_epochs):
+def test(data_dir, dataset, model_type, batch_size,
+         summary_dir, max_to_keep, max_epochs):
     """Restore the graph and variables, and evaluate the the metrics.
 
     Args:
-        hparams: The hyperparameters to build the model graph.
         data_dir: The directory containing the input data.
         dataset: The name of the dataset for the experiments.
         model_type: The name of the model architecture.
@@ -528,14 +545,12 @@ def main(_):
                        FLAGS.summary_dir, FLAGS.max_to_keep,
                        FLAGS.save_epochs, FLAGS.max_epochs)
     elif FLAGS.mode == 'test':
-        test(hparams, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.batch_size,
-                      FLAGS.summary_dir, FLAGS.max_to_keep, FLAGS.max_epochs)
-    elif FLAGS.mode == 'naive' or FLAGS.mode == 'multiscale' or FLAGS.mode == 'pyramid':
-        visual(hparams, FLAGS.dataset, FLAGS.model,
+        test(FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.batch_size,
+             FLAGS.summary_dir, FLAGS.max_to_keep, FLAGS.max_epochs)
+    elif FLAGS.mode == 'naive' or FLAGS.mode == 'multiscale' or FLAGS.mode == 'pyramid' or FLAGS.mode == 'dream':
+        visual(FLAGS.dataset, FLAGS.model,
                FLAGS.batch_size, FLAGS.summary_dir,
                FLAGS.max_epochs, FLAGS.mode)
-    elif FLAGS.mode == 'dream':
-        raise NotImplementedError('dream not implemented!')
     else:
         raise ValueError(
             "No matching mode found for '{}'".format(FLAGS.mode))

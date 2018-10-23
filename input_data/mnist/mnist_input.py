@@ -92,9 +92,59 @@ def inputs(split, data_dir, batch_size, max_epochs):
     specs['image_dim'] = 24
     return batched_dataset, specs
 
+def _dream_cropping(image, label):
+    
+    cropped_image_dim = 24
+    image = tf.expand_dims(image, -1) # (HWC)
+    image = tf.image.resize_image_with_crop_or_pad(image, cropped_image_dim, cropped_image_dim)
+    image = tf.image.per_image_standardization(image)
+    image = tf.transpose(image, [2, 0, 1]) # (CHW)
+
+    feature = {
+        'image': image, 
+        'label': label
+    }
+    return feature
+
+def _dream_processing(feature):
+    batched_features = {
+        'images': feature['image'],
+        'labels': feature['label'],
+    }
+    return batched_features
+
+def dream_inputs(split, data_dir, batch_size, max_epochs):
+    
+    # Dataset specs
+    specs = {
+        'split': split, 
+        'max_epochs': max_epochs,
+        'batch_size': batch_size,
+        'image_dim': 28,
+        'depth': 1,
+        'num_classes': 10
+    }
+    with np.load(os.path.join(data_dir, 'mnist.npz')) as f:
+        images, labels = f['x_{}'.format(split)], f['y_{}'.format(split)]
+        assert images.shape[0] == labels.shape[0]
+        specs['total_size'] = images.shape[0]
+    specs['steps_per_epoch'] = specs['total_size'] // specs['batch_size']
+    images = images / 255.0
+
+    dataset = tf.data.Dataset.from_tensor_slices((images, labels)) 
+    dataset = dataset.prefetch(buffer_size=specs['batch_size']*10)
+    dataset = dataset.repeat(specs['max_epochs'])
+    dataset = dataset.map(_dream_cropping, num_parallel_calls=3)
+    batched_dataset = dataset.batch(specs['max_epochs'])
+    batched_dataset = batched_dataset.map(_dream_processing, num_parallel_calls=3)
+    batched_dataset = batched_dataset.prefetch(1)
+
+    specs['image_dim'] = 24
+    return batched_dataset, specs
+
 if __name__ == '__main__':
     
-    dataset, specs = inputs('test', 10, 2)
+    dataset, specs = inputs('test', data_dir, batch_size, max_epochs)
     iterator = dataset.make_initializable_iterator()
     next_feature = iterator.get_next()
     

@@ -111,7 +111,6 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
     std_img = _stdvisual(img) 
     std_img = np.squeeze(std_img) # squeeze out the channel dimmension if ch=1
     std_img_fn = '-'.join(re.split('/|:', t_grad.name))
-    write_dir += '/naive/'
     _write_to_visual_dir(std_img, std_img_fn, write_dir)
 
     scaled_img = ndimage.zoom(std_img, 5.0)
@@ -188,7 +187,6 @@ def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
         octave_n: the number of times to scale the output image.
         octave_scale: the scale value for each scale.
     """
-    write_dir += '/multiscale/'
     img = img0.copy() # (1, 3 or 1, 24, 24)
     img = _squeeze_transpose(img) # (24, 24, 3 or 1)
 
