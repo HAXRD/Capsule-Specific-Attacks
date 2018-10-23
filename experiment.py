@@ -180,7 +180,8 @@ def _compute_activation_grads():
 
         for ch_idx, ch_t in enumerate(splited_logit_t_by_chs):
             ch_t_name = '_'.join(ch_t.name.split(':'))
-            ch_t_obj = tf.reduce_mean(ch_t, name=ch_t_name+'/obj')
+            # ch_t_obj = tf.reduce_mean(ch_t, name=ch_t_name+'/obj')
+            ch_t_obj = ch_t
             ch_t_grads = tf.gradients(ch_t_obj, batched_images_t, name='gradients/' + ch_t_name)
             #ch_t_grads = tf.gradients(ch_t_obj, batched_images_t)
             result_grads.append(ch_t_grads)
