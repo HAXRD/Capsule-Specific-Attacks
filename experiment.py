@@ -257,12 +257,13 @@ def run_visual_session(iterator, specs, load_dir, summary_dir, vis_or_dream_type
             except tf.errors.OutOfRangeError:
                 break
 
-def visual(dataset, model_type,
+def visual(data_dir, dataset, model_type,
            batch_size, summary_dir, 
            max_epochs, vis_or_dream_type='naive'):
     """Visualize available layers given noise images.
 
     Args:
+        data_dir: The directory containing the input data.
         dataset: The name of the dataset for the experiments.
         model_type: The name of the model architecture.
         batch_size: Total batch size, will be distributed to `num_gpus` GPUs.
@@ -286,7 +287,7 @@ def visual(dataset, model_type,
         batched_dataset, specs = get_batched_dataset(
             batch_size=batch_size,
             max_epochs=max_epochs,
-            data_dir=None,
+            data_dir=data_dir,
             dataset=dataset,
             split=split)
         iterator = batched_dataset.make_initializable_iterator()
@@ -548,7 +549,7 @@ def main(_):
         test(FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.batch_size,
              FLAGS.summary_dir, FLAGS.max_to_keep, FLAGS.max_epochs)
     elif FLAGS.mode == 'naive' or FLAGS.mode == 'multiscale' or FLAGS.mode == 'pyramid' or FLAGS.mode == 'dream':
-        visual(FLAGS.dataset, FLAGS.model,
+        visual(FLAGS.data_dir, FLAGS.dataset, FLAGS.model,
                FLAGS.batch_size, FLAGS.summary_dir,
                FLAGS.max_epochs, FLAGS.mode)
     else:
