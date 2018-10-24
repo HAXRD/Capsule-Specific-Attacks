@@ -27,33 +27,34 @@ def _process(batched_noise_imgs):
     }
     return feature
 
-def inputs(n_repeats, depth=3, split='noise', batch_size=1, seed=123):
+def inputs(max_epochs, steps_per_epoch=1, depth=3, split='noise', batch_size=1, seed=123):
     """Construct input for layer visualization.
-
-    Here we let `total_size` = `total_batch_size` so that each epoch
-    only contains single batch when `num_gpus`=1 (minibatch could
-    be created if `num_gpus` > 1, but the idea stays the same).
-    1 batch/epoch contains `total_size` number of different noise
-        --> compare across 1 batch/epoch, we can find the effect of 
-        different noise initializations on layer visualization.
-    Repeat the batch/epoch `n_repeats` times
-        --> we use `n_repeats` batch/epoch initializations to compare
-        the different between each layer we want to visualization.
     
+    We the noise images are produced as follows:
+        1. Initialization a noise image with a fixed seed to 
+        produce pseudo randomness.
+        2. The total number of the noise images
+        = max_epochs * steps_per_epoch * batch_size(=1)
+        = max_epochs * steps_per_epoch
+
     Args:
-        n_repeats: number of epochs to create.
+        max_epochs: number of epochs to create.
+        steps_per_epoch: number of batches_per_epoch.
         depth: number of channels of noise images.
         split: 'noise'
         batch_size: should be 1 by all means.
         seed: seed to reproduce pseudo randomness.
     """
+    assert steps_per_epoch != None
     # Dataset specs
     specs = {
         'split': split,
-        'n_repeats': n_repeats,
+        'max_epochs': max_epochs,
         'batch_size': batch_size,
         'image_dim': 24,
-        'depth': depth
+        'depth': depth,
+        'total_size': max_epochs * steps_per_epoch * batch_size,
+        'steps_per_epoch': steps_per_epoch
     }
 
     np.random.seed(seed)
@@ -61,11 +62,14 @@ def inputs(n_repeats, depth=3, split='noise', batch_size=1, seed=123):
     noise_imgs = np.random.uniform(size=(
         specs['batch_size'], 
         specs['depth'], specs['image_dim'], specs['image_dim'])) + 100.0
+    # Normalize the image
+    noise_imgs = (noise_imgs - noise_imgs.mean()) / noise_imgs.std()
 
     # Extract single instance
-    t_noise_img = tf.data.Dataset.from_tensor_slices((noise_imgs))
-    # Create `n_repeats` number of epochs
-    t_noise_imgs = t_noise_img.repeat(specs['n_repeats'])
+    t_noise_img = tf.data.Dataset.from_tensor_slices((noise_imgs)) # total_size=1
+    # Create `max_epochs*steps_per_epoch` number of copys
+    t_noise_imgs = t_noise_img.repeat(
+        specs['max_epochs']*specs['steps_per_epoch'])
     # Create batched image tensors
     batched_noise_imgs = t_noise_imgs.batch(specs['batch_size'])
     # Convert to feature

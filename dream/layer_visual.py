@@ -106,7 +106,8 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
 
         img += g*step
         gsum += g*step
-    
+        print('{0:.1f}%'.format((i+1)*100.0/iter_n), end='\r')
+    print()
     img = _squeeze_transpose(img)
     std_img = _stdvisual(img) 
     std_img = np.squeeze(std_img) # squeeze out the channel dimmension if ch=1

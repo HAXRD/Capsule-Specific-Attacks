@@ -71,7 +71,8 @@ models = {
 }
 
 def get_batched_dataset(batch_size, max_epochs,
-                        data_dir, dataset, split='default'):
+                        data_dir, dataset, split='default', 
+                        num_batches_per_epoch=None):
     """Reads the input data and set the batch_size to 1/`num_gpus`
     of the `batch_size`. 
 
@@ -81,17 +82,22 @@ def get_batched_dataset(batch_size, max_epochs,
         data_dir: The directory containing the data.
         dataset: The name of dataset.
         split: 'train', 'test', 'default' (only for noise data)
+        num_batches_per_epoch: number of batches per epoch, this parameter
+            should only be used in `noise` and `dream` conditions.
     Returns:
-        bat: A list of batched dataset
+        batched_dataset: Dataset object.
+        specs: dataset specifications.
     """
     with tf.device('/gpu:0'):
         if split == 'noise':
             if dataset == 'cifar10':
                 batched_dataset, specs = noise_input_.inputs(
-                    n_repeats=max_epochs)
+                    max_epochs=max_epochs,
+                    steps_per_epoch=num_batches_per_epoch)
             elif dataset == 'mnist':
                 batched_dataset, specs = noise_input_.inputs(
-                    n_repeats=max_epochs,
+                    max_epochs=max_epochs,
+                    steps_per_epoch=num_batches_per_epoch,
                     depth=1)
         elif split == 'dream':
             if dataset == 'cifar10':
@@ -100,8 +106,8 @@ def get_batched_dataset(batch_size, max_epochs,
                 batched_dataset, specs = mnist_input.dream_inputs(
                     split=split,
                     data_dir=data_dir,
-                    batch_size=batch_size,
-                    max_epochs=max_epochs)
+                    max_epochs=max_epochs,
+                    steps_per_epoch=num_batches_per_epoch)
         elif split == 'train' or split == 'test':
             if dataset == 'mnist':
                 batched_dataset, specs = mnist_input.inputs(
@@ -205,57 +211,105 @@ def _compute_activation_grads():
     
     return result_grads
 
-def run_visual_session(iterator, specs, load_dir, summary_dir, vis_or_dream_type='naive'):
+def run_visual_session(batch_size, max_epochs, data_dir, dataset,
+                       load_dir, summary_dir, vis_or_dream_type='naive'):
     """Start visualization session. Producing results to summary_dir.
 
     Args:
-        iterator: iterator, dataset iterator.
-        specs: dict, dictionary containing dataset specifications.
         load_dir: str, directory that contains checkpoints.
         summary_dir: str, directory storing the resultant images.
         vis_or_dream_type: 'naive', 'multiscale', 'pyramid' (TODO) or 'dream'
     """
+    # Init writing directory
     write_dir = os.path.join(summary_dir, vis_or_dream_type)
+
     # Find latest checkpoint information
     latest_step, latest_ckpt_path = find_latest_checkpoint_info(load_dir)
     if latest_step == -1 or latest_ckpt_path == None:
         raise ValueError('Checkpoint files not found!')
     else:
         latest_ckpt_meta_path = latest_ckpt_path + '.meta'
-
+    
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-        # Import compute graph
+        # Import compute graph and restore variables
         saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
-        # Restore variables
         saver.restore(sess, latest_ckpt_path)
 
-        batch_data = iterator.get_next()
-        sess.run(iterator.initializer)
         # Calculate the gradients
         result_grads = _compute_activation_grads()
-        print('Number of gradients computed: ', len(result_grads))
+        num_batches_per_epoch = len(result_grads) # number of batches per epoch
+        print('Number of gradients computed (= number of batches per epoch): ', 
+              num_batches_per_epoch)
 
-        for t_idx, t_grad in enumerate(result_grads):
-            try:
-                batch_val = sess.run(batch_data)
+        # Get batched dataset and declare initializable iterator
+        possible_vis_types = ['naive', 'multiscale', 'pyramid']
+        possible_dream_types = ['dream']
+        if vis_or_dream_type in possible_vis_types:
+            split = 'noise'
+        elif vis_or_dream_type in possible_dream_types:
+            split = 'dream'
+        else:
+            raise ValueError(
+                "{} is not one of 'naive', 'multiscale', 'pyramid' or 'dream'".format(vis_or_dream_type))
+        batched_dataset, specs = get_batched_dataset(
+            batch_size=batch_size,
+            max_epochs=max_epochs,
+            data_dir=data_dir,
+            dataset=dataset,
+            split=split,
+            num_batches_per_epoch=num_batches_per_epoch)
+        iterator = batched_dataset.make_initializable_iterator()
+        batch_data = iterator.get_next()
+        sess.run(iterator.initializer)
 
-                placeholders = tf.get_collection('placeholders')
-                for ph in placeholders:
-                    if 'batched_images' in ph.name:
-                        ph_ref = ph 
-                if vis_or_dream_type == 'naive':
-                    layer_visual.render_naive(t_grad, batch_val['images'], ph_ref, sess, write_dir)
-                elif vis_or_dream_type == 'multiscale':
-                    layer_visual.render_multiscale(t_grad, batch_val['images'], ph_ref, sess, write_dir)
-                elif vis_or_dream_type == 'pyramid':
-                    raise NotImplementedError('pyramid not implemented!')
-                elif vis_or_dream_type == 'dream':
-                    layer_visual.render_naive(t_grad, batch_val['images'], ph_ref, sess, write_dir)
-                else:
-                    raise ValueError("mode type is not one of 'train', 'test', 'naive', 'multiscale', 'pyramid', or 'dream'!")
-                print('\n{0} {1} {0} {2}%'.format(' '*3, '-'*5, (1+t_idx)*100.0/len(result_grads)))
-            except tf.errors.OutOfRangeError:
-                break
+        # batch_size ≡ 1
+        # Visuals (naive, multiscale, pyramid): 
+        #                 max_epochs * steps_per_epoch(=num_batches_per_epoch)
+        # Dream: 
+        #   num_classes * max_epochs * steps_per_epoch(=num_batches_per_epoch)
+        #
+        if split == 'noise':
+            num_class_loop = 1
+        elif split == 'dream':
+            num_class_loop = specs['num_classes']
+        else:
+            raise ValueError("'split' value invalid")
+
+        for i in range(max_epochs):
+            for j in range(num_class_loop):
+                for k in range(num_batches_per_epoch):
+                    try:
+                        # Get feed dict reference
+                        placeholders = tf.get_collection('placeholders')
+                        for ph in placeholders:
+                            if 'batched_images' in ph.name:
+                                ph_ref = ph
+                        # Get one batch values
+                        batch_val = sess.run(batch_data)
+                        # Run different experiments
+                        if vis_or_dream_type == 'naive':
+                            layer_visual.render_naive(
+                                t_grad=result_grads[k], img0=batch_val['images'],
+                                in_ph_ref=ph_ref, sess=sess, write_dir=write_dir)
+                        elif vis_or_dream_type == 'multiscale':
+                            layer_visual.render_multiscale(
+                                t_grad=result_grads[k], img0=batch_val['images'],
+                                in_ph_ref=ph_ref, sess=sess, write_dir=write_dir)
+                        elif vis_or_dream_type == 'pyramid':
+                            raise NotImplementedError('pyramid not implemented!')
+                        elif vis_or_dream_type == 'dream':
+                            layer_visual.render_naive(
+                                t_grad=result_grads[k], img0=batch_val['images'],
+                                in_ph_ref=ph_ref, sess=sess, write_dir=write_dir)
+                        else:
+                            raise ValueError("mode type is not one of 'train', 'test', 'naive', 'multiscale', 'pyramid', or 'dream'!")
+                        print('\n{0} {1} {0} total:class:gradient = {2:.1f}% ~ {3:.1f}% ~ {4:.1f}%'.format(
+                            ' '*3, '-'*5, 
+                            100.0*(i * num_class_loop * num_batches_per_epoch + j * num_batches_per_epoch + k + 1) / (max_epochs * num_class_loop * num_batches_per_epoch),
+                            100.0*(j * num_batches_per_epoch + k + 1)/(num_class_loop * num_batches_per_epoch),
+                            100.0*(k + 1)/num_batches_per_epoch))
+                    except tf.errors.OutOfRangeError:
+                        break
 
 def visual(data_dir, dataset, model_type,
            batch_size, summary_dir, 
@@ -273,24 +327,8 @@ def visual(data_dir, dataset, model_type,
     """
     load_dir = summary_dir + '/train/'
     summary_dir += '/visual/'
-    possible_vis_types = ['naive', 'multiscale', 'pyramid']
-    possible_dream_types = ['dream']
     # Declare the empty model graph
     with tf.Graph().as_default():
-        # Get batched dataset and declare initializable iterator
-        if vis_or_dream_type in possible_vis_types:
-            split = 'noise'
-        elif vis_or_dream_type in possible_dream_types:
-            split = 'dream'
-        else:
-            raise ValueError("{} is not one of 'naive', 'multiscale', 'pyramid' or 'dream'".format(vis_or_dream_type))
-        batched_dataset, specs = get_batched_dataset(
-            batch_size=batch_size,
-            max_epochs=max_epochs,
-            data_dir=data_dir,
-            dataset=dataset,
-            split=split)
-        iterator = batched_dataset.make_initializable_iterator()
         # Call visual experiment
         run_visual_session(iterator, specs, load_dir, summary_dir, vis_or_dream_type)
 
