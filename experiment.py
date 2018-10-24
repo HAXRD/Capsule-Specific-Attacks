@@ -62,9 +62,9 @@ tf.flags.DEFINE_integer('max_epochs', 20,
                         'Number of epochs to train, test, naive, multiscale or dream.\n'
                         'train ~ 1000 (20 when debugging);\n'
                         'test = 1;\n'
-                        'naive > 2000 (cnn), > ? (cap);\n'
-                        'multiscale ~ 5x naive;\n'
-                        'dream ∝ # of given image')
+                        'naive = 1;\n'
+                        'multiscale = 1;\n'
+                        'dream = # of different samples for each class')
 models = {
     'cnn': cnn_model.CNNModel,
     'cap': capsule_model.CapsuleModel
@@ -330,7 +330,8 @@ def visual(data_dir, dataset, model_type,
     # Declare the empty model graph
     with tf.Graph().as_default():
         # Call visual experiment
-        run_visual_session(iterator, specs, load_dir, summary_dir, vis_or_dream_type)
+        run_visual_session(batch_size, max_epochs, data_dir, dataset,
+                           load_dir, summary_dir, vis_or_dream_type)
 
 def run_test_session(iterator, specs, load_dir, summary_dir):
     """Find latest checkpoint and load the graph and variables.
@@ -494,7 +495,7 @@ def run_train_session(iterator, specs, # Dataset related
                     epoch_time = 0
                 else:
                     print("running {0} epochs {1:.1f}%, total time ~ {2}:{3}:{4}".format(
-                        step_counter // specs['steps_per_epoch'],
+                        step_counter // specs['steps_per_epoch'] + 1,
                         step_counter % specs['steps_per_epoch'] * 100.0 / specs['steps_per_epoch'],
                         int(total_time // 3600), 
                         int(total_time % 3600 // 60), 

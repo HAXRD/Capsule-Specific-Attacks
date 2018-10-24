@@ -41,7 +41,7 @@ def _write_to_visual_dir(std_img, filename, write_dir, fmt='jpeg'):
         fmt: image format.
     """
     arr = np.uint8(np.clip(std_img, 0, 1) * 255) 
-    print(std_img.shape)
+    print('image shape: ', std_img.shape)
     f = BytesIO()
     img = PIL.Image.fromarray(arr)
 
@@ -50,7 +50,7 @@ def _write_to_visual_dir(std_img, filename, write_dir, fmt='jpeg'):
     fpath = os.path.join(write_dir, filename + '.' + fmt)
     fpath = '/'.join([s for s in fpath.split('/') if len(s) > 0])
     img.save(fpath, format=fmt)
-    print('Image saved to {}'.format(fpath), end='\r')
+    print('Image saved to {}'.format(fpath))
 
 def _stdvisual(img, s=0.1):
     """Normalizes the given image with the shape of (24, 24, 3 or 1)
@@ -109,12 +109,18 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
         print('{0:.1f}%'.format((i+1)*100.0/iter_n), end='\r')
     print()
     img = _squeeze_transpose(img)
+    
     std_img = _stdvisual(img) 
     std_img = np.squeeze(std_img) # squeeze out the channel dimmension if ch=1
     std_img_fn = '-'.join(re.split('/|:', t_grad.name))
     _write_to_visual_dir(std_img, std_img_fn, write_dir)
 
-    scaled_img = ndimage.zoom(std_img, 5.0)
+    if len(std_img.shape) == 3:
+        scale_list = [5.0, 5.0, 1.0]
+    else:
+        scale_list = [5.0, 5.0]
+
+    scaled_img = ndimage.zoom(std_img, scale_list)
     scaled_img_fn = '5x-' + std_img_fn
     _write_to_visual_dir(scaled_img, scaled_img_fn, write_dir)
 
@@ -124,7 +130,7 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
     std_gsum_fn = 'gsum-' + std_img_fn
     _write_to_visual_dir(std_gsum, std_gsum_fn, write_dir)
 
-    scaled_gsum = ndimage.zoom(std_gsum, 5.0)
+    scaled_gsum = ndimage.zoom(std_gsum, scale_list)
     scaled_gsum_fn = '5x-' + std_gsum_fn
     _write_to_visual_dir(scaled_gsum, scaled_gsum_fn, write_dir)
 
@@ -207,7 +213,11 @@ def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
         std_img_fn = std_img_fn = '-'.join(re.split('/|:', t_grad.name)) + '-octave{}'.format(str(octave))
         _write_to_visual_dir(std_img, std_img_fn, write_dir)
 
-        scaled_img = ndimage.zoom(std_img, 2.0)
+        if len(std_img.shape) == 3:
+            scale_list = [2.0, 2.0, 1.0]
+        else:
+            scale_list = [2.0, 2.0]
+        scaled_img = ndimage.zoom(std_img, scale_list)
         scaled_img_fn = '2x-' + std_img_fn
         _write_to_visual_dir(scaled_img, scaled_img_fn, write_dir)
 
