@@ -37,7 +37,7 @@ def _squash(in_tensor):
         A tensor with same shape
     """
     with tf.name_scope('norm_non_linearity'):
-        norm = tf.norm(in_tensor, axis=2, keep_dims=True)
+        norm = tf.norm(in_tensor, axis=2, keepdims=True)
         norm_squared = norm * norm
         return (in_tensor / norm) * (norm_squared / (1 + norm_squared))
 
@@ -56,9 +56,9 @@ def _leaky_routing(logits, out_dim):
         routing probabilities for each pair of capsules. Same shape as logits.
     """
     leak = tf.zeros_like(logits, optimize=True)
-    leak = tf.reduce_sum(leak, axis=2, keep_dims=True)
+    leak = tf.reduce_sum(leak, axis=2, keepdims=True)
     leaky_logits = tf.concat([leak, logits], axis=2)
-    leaky_routing = tf.nn.softmax(leaky_logits, dim=2)
+    leaky_routing = tf.nn.softmax(leaky_logits, axis=2)
     return tf.split(leaky_routing, [1, out_dim], 2)[1]
 
 def _update_routing(votes, biases, logit_shape, num_ranks, in_dim, out_dim,
@@ -112,15 +112,16 @@ def _update_routing(votes, biases, logit_shape, num_ranks, in_dim, out_dim,
         dtype=tf.float32, size=num_routing, clear_after_read=False)
     logits = tf.fill(logit_shape, 0.0)
     i = tf.constant(0, dtype=tf.int32)
+
     _, logits, activations = tf.while_loop(
         lambda i, logits, activations: i < num_routing,
         _body, 
         loop_vars=[i, logits, activations],
         swap_memory=True)
-    """visual"""
+
+    """visual""" 
     for i in range(num_routing):
         tf.add_to_collection('visual', activations.read(i))
-
     return activations.read(num_routing - 1)
     
 
