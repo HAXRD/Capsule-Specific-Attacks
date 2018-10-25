@@ -20,12 +20,17 @@ This repository demonstrates the comparisons on DeepDream between several differ
 * Tensorflow-GPU
 * 1 GPU
 
-## Download dataset
+## Download dataset and ckpts
 
 * Download and extract cifar10 binary version to $DATA_DIR/
 from https://www.cs.toronto.edu/~kriz/cifar.html
 * Download mnist to $DATA_DIR/mnist with 
 https://storage.googleapis.com/tensorflow/tf-keras-datasets/mnist.npz
+
+* Download and extract capsule ckpts trained on mnist dataset to $SUMMARY_DIR/
+from https://storage.googleapis.com/ckpts/cap_mnist.zip
+* Download and extract cnn ckpts trained on mnist dataset to $SUMMARY_DIR/
+from https://storage.googleapis.com/ckpts/cnn_mnist.zip
 
 ## Inspect model parameters
 
