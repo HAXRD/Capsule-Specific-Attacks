@@ -112,7 +112,11 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
     
     std_img = _stdvisual(img) 
     std_img = np.squeeze(std_img) # squeeze out the channel dimmension if ch=1
-    std_img_fn = '-'.join(re.split('/|:', t_grad.name))
+    # shorten filename
+    fn_splited_list = re.split('/|:', t_grad.name)
+    s_tower_2nd_idx = [i for i, _ in enumerate(fn_splited_list)][1]
+    std_img_fn = '-'.join(fn_splited_list[:s_tower_2nd_idx])
+    
     _write_to_visual_dir(std_img, std_img_fn, write_dir)
 
     if len(std_img.shape) == 3:
