@@ -76,7 +76,7 @@ def _squeeze_transpose(img):
     return img
 
 def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
-                 iter_n=10, step=1.0):
+                 iter_n=10, step=1.0, lbl=None):
     """Naively computes the gradients with given noise image iteratively.
 
     Args:
@@ -116,7 +116,11 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
     fn_splited_list = re.split('/|:', t_grad.name)
     s_tower_2nd_idx = [i for i, part in enumerate(fn_splited_list) if part == 'tower'][1]
     std_img_fn = '-'.join(fn_splited_list[:s_tower_2nd_idx])
-    
+    if not lbl == None:
+        lbl_prefix = 'lbl-' + str(lbl) + '-'
+    else:
+        lbl_prefix = ''
+
     # _write_to_visual_dir(std_img, std_img_fn, write_dir)
 
     if len(std_img.shape) == 3:
@@ -125,7 +129,7 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
         scale_list = [5.0, 5.0]
 
     scaled_img = ndimage.zoom(std_img, scale_list)
-    scaled_img_fn = '5x-' + std_img_fn
+    scaled_img_fn = lbl_prefix + '5x-' + std_img_fn
     _write_to_visual_dir(scaled_img, scaled_img_fn, write_dir)
 
     gsum = _squeeze_transpose(gsum)
@@ -135,7 +139,7 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
     # _write_to_visual_dir(std_gsum, std_gsum_fn, write_dir)
 
     scaled_gsum = ndimage.zoom(std_gsum, scale_list)
-    scaled_gsum_fn = '5x-' + std_gsum_fn
+    scaled_gsum_fn = lbl_prefix + '5x-' + std_gsum_fn
     _write_to_visual_dir(scaled_gsum, scaled_gsum_fn, write_dir)
 
 
