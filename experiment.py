@@ -65,6 +65,12 @@ tf.flags.DEFINE_integer('max_epochs', 20,
                         'naive = 1;\n'
                         'multiscale = 1;\n'
                         'dream = # of different samples for each class')
+tf.flags.DEFINE_integer('iter_n', 10,
+                        'Number of iteration to run the gradient ascent')
+tf.flags.DEFINE_string('step', '1.0',
+                       'Size of step for each iteration')
+tf.flags.DEFINE_string('threshold', '0.0',
+                       'Those gradients after divided by the its standard deviations that larger than the threshold will be added')
 models = {
     'cnn': cnn_model.CNNModel,
     'cap': capsule_model.CapsuleModel
@@ -211,7 +217,24 @@ def _compute_activation_grads():
     
     return result_grads
 
+def _write_specs_file(write_dir, vis_or_dream_type, dataset, batch_size,
+                      max_epochs, iter_n, step, threshold):
+    write_dir = os.path.join(write_dir, 'max_ep_{}-iter_n_{}-step_{}-th_{}'.format(
+        max_epochs, iter_n, step, threshold))
+    if not os.path.exists(write_dir):
+        os.makedirs(write_dir)
+    with open(os.path.join(write_dir, 'specs.txt'), 'w+') as f:
+        f.write('type: {};\n'.format(vis_or_dream_type))
+        f.write('dataset: {};\n'.format(dataset))
+        f.write('batch_size: {};\n'.format(batch_size))
+        f.write('max_epochs: {};\n'.format(max_epochs))
+        f.write('iter_n: {};\n'.format(iter_n))
+        f.write('step: {};\n'.format(step))
+        f.write('threshold: {};\n'.format(threshold))
+    return write_dir
+
 def run_visual_session(batch_size, max_epochs, data_dir, dataset,
+                       iter_n, step, threshold,
                        load_dir, summary_dir, vis_or_dream_type='naive'):
     """Start visualization session. Producing results to summary_dir.
 
@@ -222,6 +245,8 @@ def run_visual_session(batch_size, max_epochs, data_dir, dataset,
     """
     # Init writing directory
     write_dir = os.path.join(summary_dir, vis_or_dream_type)
+    write_dir = _write_specs_file(write_dir, vis_or_dream_type, dataset, batch_size,
+                                  max_epochs, iter_n, step, threshold)
 
     # Find latest checkpoint information
     latest_step, latest_ckpt_path = find_latest_checkpoint_info(load_dir)
@@ -290,7 +315,8 @@ def run_visual_session(batch_size, max_epochs, data_dir, dataset,
                         if vis_or_dream_type == 'naive':
                             layer_visual.render_naive(
                                 t_grad=result_grads[k], img0=batch_val['images'],
-                                in_ph_ref=ph_ref, sess=sess, write_dir=write_dir)
+                                in_ph_ref=ph_ref, sess=sess, write_dir=write_dir,
+                                iter_n=iter_n, step=step)
                         elif vis_or_dream_type == 'multiscale':
                             layer_visual.render_multiscale(
                                 t_grad=result_grads[k], img0=batch_val['images'],
@@ -301,7 +327,8 @@ def run_visual_session(batch_size, max_epochs, data_dir, dataset,
                             lbl = batch_val['labels']
                             layer_visual.render_naive(
                                 t_grad=result_grads[k], img0=batch_val['images'],
-                                in_ph_ref=ph_ref, sess=sess, write_dir=write_dir, ep_i=i, lbl=lbl)
+                                in_ph_ref=ph_ref, sess=sess, write_dir=write_dir, 
+                                iter_n=iter_n, step=step, threshold=threshold, ep_i=i, lbl=lbl)
                         else:
                             raise ValueError("mode type is not one of 'train', 'test', 'naive', 'multiscale', 'pyramid', or 'dream'!")
                         print('\n{0} {1} {0} total:class:gradient = {2:.1f}% ~ {3:.1f}% ~ {4:.1f}%'.format(
@@ -313,8 +340,8 @@ def run_visual_session(batch_size, max_epochs, data_dir, dataset,
                         break
 
 def visual(data_dir, dataset, model_type,
-           batch_size, summary_dir, 
-           max_epochs, vis_or_dream_type='naive'):
+           batch_size, summary_dir, max_epochs, 
+           iter_n, step, threshold, vis_or_dream_type='naive'):
     """Visualize available layers given noise images.
 
     Args:
@@ -332,6 +359,7 @@ def visual(data_dir, dataset, model_type,
     with tf.Graph().as_default():
         # Call visual experiment
         run_visual_session(batch_size, max_epochs, data_dir, dataset,
+                           iter_n, step, threshold,
                            load_dir, summary_dir, vis_or_dream_type)
 
 def run_test_session(iterator, specs, load_dir, summary_dir):
@@ -590,8 +618,8 @@ def main(_):
              FLAGS.summary_dir, FLAGS.max_to_keep, FLAGS.max_epochs)
     elif FLAGS.mode == 'naive' or FLAGS.mode == 'multiscale' or FLAGS.mode == 'pyramid' or FLAGS.mode == 'dream':
         visual(FLAGS.data_dir, FLAGS.dataset, FLAGS.model,
-               FLAGS.batch_size, FLAGS.summary_dir,
-               FLAGS.max_epochs, FLAGS.mode)
+               FLAGS.batch_size, FLAGS.summary_dir, FLAGS.max_epochs, 
+               FLAGS.iter_n, float(FLAGS.step), float(FLAGS.threshold), FLAGS.mode)
     else:
         raise ValueError(
             "No matching mode found for '{}'".format(FLAGS.mode))

@@ -76,7 +76,7 @@ def _squeeze_transpose(img):
     return img
 
 def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
-                 iter_n=10, step=1.0, ep_i=None, lbl=None):
+                 iter_n, step, threshold=0.0, ep_i=None, lbl=None):
     """Naively computes the gradients with given noise image iteratively.
 
     Args:
@@ -99,7 +99,6 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
         g = sess.run(t_grad, feed_dict={in_ph_ref: img})
         g /= g.std() + 1e-8
 
-        threshold = 0.5
         g_abs = np.absolute(g)
         filt = np.greater(g_abs, threshold).astype(np.float32)
         g *= filt
@@ -110,7 +109,8 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
     print()
     img = _squeeze_transpose(img)
     
-    std_img = _stdvisual(img) 
+    # std_img = _stdvisual(img) 
+    std_img = img
     std_img = np.squeeze(std_img) # squeeze out the channel dimmension if ch=1
     # shorten filename
     fn_splited_list = re.split('/|:', t_grad.name)
@@ -139,7 +139,8 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
     _write_to_visual_dir(scaled_img, scaled_img_fn, write_dir)
 
     gsum = _squeeze_transpose(gsum)
-    std_gsum = _stdvisual(gsum)
+    # std_gsum = _stdvisual(gsum)
+    std_gsum = gsum
     std_gsum = np.squeeze(std_gsum)
     std_gsum_fn = 'gsum-' + std_img_fn
     # _write_to_visual_dir(std_gsum, std_gsum_fn, write_dir)
