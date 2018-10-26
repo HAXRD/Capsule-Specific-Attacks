@@ -301,7 +301,7 @@ def run_visual_session(batch_size, max_epochs, data_dir, dataset,
                             lbl = batch_val['labels']
                             layer_visual.render_naive(
                                 t_grad=result_grads[k], img0=batch_val['images'],
-                                in_ph_ref=ph_ref, sess=sess, write_dir=write_dir, lbl=lbl)
+                                in_ph_ref=ph_ref, sess=sess, write_dir=write_dir, ep_i=i, lbl=lbl)
                         else:
                             raise ValueError("mode type is not one of 'train', 'test', 'naive', 'multiscale', 'pyramid', or 'dream'!")
                         print('\n{0} {1} {0} total:class:gradient = {2:.1f}% ~ {3:.1f}% ~ {4:.1f}%'.format(
