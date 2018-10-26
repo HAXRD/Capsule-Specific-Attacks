@@ -114,10 +114,10 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
     std_img = np.squeeze(std_img) # squeeze out the channel dimmension if ch=1
     # shorten filename
     fn_splited_list = re.split('/|:', t_grad.name)
-    s_tower_2nd_idx = [i for i, _ in enumerate(fn_splited_list)][1]
+    s_tower_2nd_idx = [i for i, part in enumerate(fn_splited_list) if part == 'tower'][1]
     std_img_fn = '-'.join(fn_splited_list[:s_tower_2nd_idx])
     
-    _write_to_visual_dir(std_img, std_img_fn, write_dir)
+    # _write_to_visual_dir(std_img, std_img_fn, write_dir)
 
     if len(std_img.shape) == 3:
         scale_list = [5.0, 5.0, 1.0]
@@ -132,7 +132,7 @@ def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
     std_gsum = _stdvisual(gsum)
     std_gsum = np.squeeze(std_gsum)
     std_gsum_fn = 'gsum-' + std_img_fn
-    _write_to_visual_dir(std_gsum, std_gsum_fn, write_dir)
+    # _write_to_visual_dir(std_gsum, std_gsum_fn, write_dir)
 
     scaled_gsum = ndimage.zoom(std_gsum, scale_list)
     scaled_gsum_fn = '5x-' + std_gsum_fn
