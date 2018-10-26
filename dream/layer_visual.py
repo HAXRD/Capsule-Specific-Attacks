@@ -76,7 +76,7 @@ def _squeeze_transpose(img):
     return img
 
 def render_naive(t_grad, img0, in_ph_ref, sess, write_dir,
-                 iter_n=1000, step=1.0):
+                 iter_n=10, step=1.0):
     """Naively computes the gradients with given noise image iteratively.
 
     Args:
@@ -181,7 +181,7 @@ def _resize(img, size):
     return scaled_img
 
 def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
-                      iter_n=100, step=1.0, octave_n=3, octave_scale=2.0):
+                      iter_n=10, step=1.0, octave_n=3, octave_scale=2.0):
     """Perform the feature visualizations on images and scale up the size
     
     Args:
@@ -214,8 +214,10 @@ def render_multiscale(t_grad, img0, in_ph_ref, sess, write_dir,
 
         std_img = _stdvisual(img)
         std_img = np.squeeze(std_img) # squeeze out the channel dimmension if ch=1
-        std_img_fn = std_img_fn = '-'.join(re.split('/|:', t_grad.name)) + '-octave{}'.format(str(octave))
-        _write_to_visual_dir(std_img, std_img_fn, write_dir)
+        fn_splited_list = re.split('/|:', t_grad.name)
+        s_tower_2nd_idx = [i for i, part in enumerate(fn_splited_list) if part == 'tower'][1]
+        std_img_fn = '-'.join(fn_splited_list[:s_tower_2nd_idx]) + '-octave{}'.format(str(octave))
+        # _write_to_visual_dir(std_img, std_img_fn, write_dir)
 
         if len(std_img.shape) == 3:
             scale_list = [2.0, 2.0, 1.0]
