@@ -80,6 +80,7 @@ def evaluate(logits, scope, loss_type):
             lbls = tf.argmax(labels, axis=1, output_type=tf.int32)
             correct = tf.cast(tf.equal(preds, lbls), tf.float32)
             num_correct_per_batch = tf.reduce_sum(correct)
+            accuracy = tf.reduce_mean(correct)
     tf.summary.scalar('correct_predictions_per_batch', num_correct_per_batch)
-
-    return total_loss, num_correct_per_batch
+    tf.summary.scalar('accuracy', accuracy)
+    return total_loss, num_correct_per_batch, accuracy
