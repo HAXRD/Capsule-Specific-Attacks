@@ -39,6 +39,8 @@ from dream import layer_visual
 
 FLAGS = tf.flags.FLAGS
 
+tf.flags.DEFINE_integer('num_gpus', 1,
+                        'Number of GPUs to use.')
 tf.flags.DEFINE_string('mode', 'train',
                        'train, test, naive, multiscale, dream')
 tf.flags.DEFINE_string('hparams_override', None,
@@ -51,7 +53,7 @@ tf.flags.DEFINE_string('dataset', 'cifar10',
 tf.flags.DEFINE_string('model', 'cnn',
                        'The model to use for the experiment.\n'
                        'cap or cnn')
-tf.flags.DEFINE_integer('batch_size', 100, 
+tf.flags.DEFINE_integer('total_batch_size', 100, 
                         'Total batch size.')
 tf.flags.DEFINE_string('summary_dir', './summary',
                        'Main directory for the experiments.')
@@ -76,60 +78,67 @@ models = {
     'cap': capsule_model.CapsuleModel
 }
 
-def get_batched_dataset(batch_size, max_epochs,
-                        data_dir, dataset, split='default', 
-                        num_batches_per_epoch=None):
-    """Reads the input data and set the batch_size to 1/`num_gpus`
-    of the `batch_size`. 
+def get_distributed_dataset(total_batch_size, num_gpus, 
+                            max_epochs, data_dir, dataset, 
+                            split='default', n_repeat=None):
+    """Reads the input data from input_data functions.
+
+    For 'train' and 'test' splits,
+        given `num_gpus` GPUs and `total_batch_size`, assert 
+        `total_batch_size` % `num_gpus` == 0, we distribute 
+        those `total_batch_size` into `num_gpus` partitions,
+        denoted as `batch_size`, otherwise raise error.
+    
+    TODO: do it when reach visualization part
+    For 'noise' and 'dream' splits,
+        check if `total_batch_size` ≡ 1, otherwise raise 'ValueError'.
+        In this case, we will duplicate every example `num_gpus` times
+        so that when we pass the examples into the multi-tower models,
+        it is calculating and averaging the gradients of the same images.
 
     Args:
-        batch_size: Total number of data entries over all towers.
-        max_epochs: The maximum epochs to run.
-        data_dir: The directory containing the data.
-        dataset: The name of dataset.
-        split: 'train', 'test', 'default' (only for noise data)
-        num_batches_per_epoch: number of batches per epoch, this parameter
-            should only be used in `noise` and `dream` conditions.
+        total_batch_size: total number of data entries over all towers.
+        num_gpus: number of GPUs available to use.
+        max_epochs: for 'train' split, this parameter decides the number of 
+            epochs to train for the model; for 'test' split, this parameter
+            should ≡ 1 since we are not doing resemble evalutions in this project.
+        data_dir: the directory containing the data.
+        dataset: the name of dataset.
+        split: 'train', 'test', 'noise', 'dream'.
+        n_repeat('noise' and 'dream'): the number of repeats of the same image.
     Returns:
         batched_dataset: Dataset object.
         specs: dataset specifications.
     """
     with tf.device('/gpu:0'):
-        if split == 'noise':
-            if dataset == 'cifar10':
-                batched_dataset, specs = noise_input_.inputs(
-                    max_epochs=max_epochs,
-                    steps_per_epoch=num_batches_per_epoch)
-            elif dataset == 'mnist':
-                batched_dataset, specs = noise_input_.inputs(
-                    max_epochs=max_epochs,
-                    steps_per_epoch=num_batches_per_epoch,
-                    depth=1)
-        elif split == 'dream':
-            if dataset == 'cifar10':
-                raise NotImplementedError('cifar10 not implemented!')
-            elif dataset == 'mnist':
-                batched_dataset, specs = mnist_input.dream_inputs(
-                    split=split,
-                    data_dir=data_dir,
-                    max_epochs=max_epochs,
-                    steps_per_epoch=num_batches_per_epoch)
-        elif split == 'train' or split == 'test':
+        if split == 'train' or split == 'test':
+            assert total_batch_size % num_gpus == 0
             if dataset == 'mnist':
-                batched_dataset, specs = mnist_input.inputs(
-                    split=split,
-                    data_dir=data_dir,
-                    batch_size=batch_size,
-                    max_epochs=max_epochs)
-            elif dataset == 'cifar10':
-                batched_dataset, specs = cifar10_input.inputs(
-                    split=split,
-                    data_dir=data_dir,
-                    batch_size=batch_size,
-                    max_epochs=max_epochs)
+                distributed_dataset, specs = mnist_input.inputs(
+                    total_batch_size, num_gpus, max_epochs,
+                    data_dir, split)
+            elif dataset == 'fashion_mnist': # TODO
+                raise NotImplementedError('fashsion_mnist not implemented yet.')
+            elif dataset == 'cifar10': # TODO
+                raise NotImplementedError('cifar10 not implemented yet.')
+        elif split == 'noise':
+            if dataset == 'mnist':
+                dataset, specs = noise_input_.inputs(
+                    max_epochs, n_repeat, depth=1)
+            elif dataset == 'fashion_mnist': # TODO
+                raise NotImplementedError('')
+            elif dataset == 'cifar10': # TODO
+                raise NotImplementedError('')
+        elif split == 'dream':
+            if dataset == 'mnist': # TODO
+                raise NotImplementedError('')
+            elif dataset == 'fashion_mnist': # TODO
+                raise NotImplementedError('')
+            elif dataset == 'cifar10': # TODO
+                raise NotImplementedError('')
         else:
-            raise NotImplementedError('Unexpected dataset read!!')
-    return batched_dataset, specs
+            raise ValueError('')
+    return distributed_dataset, specs
 
 def find_latest_checkpoint_info(load_dir):
     """Finds the latest checkpoint information.
@@ -157,24 +166,27 @@ def extract_step(path):
     file_name = os.path.basename(path)
     return int(file_name.split('-')[-1])
 
-def _compute_activation_grads():
-    """Compute the averaged activation grads. This function adds some 
-    extra ops to the original graph, namely calculating the gradients of 
-    the objective functions w.r.t. input batched_images.
-
+def _compute_activation_grads(tower_idx):
+    """Compute the averaged activation grads. Because the weights are 
+    shared among towers, so we simply take one tower to compute the 
+    gradients instead of calculating the gradients of all the towers. 
+    This function adds some extra ops to the original graph, namely 
+    calculating the gradients of the objective functions w.r.t. 
+    input batched_images.
+    
+    Args:
+        tower_idx: the index number for this tower. Each tower is named
+            as tower_{tower_idx} and resides on gpu:{tower_idx}.
     Returns:
         A dictionary whose keys are the name of the target layer and 
         values are the gradients of the objective functions w.r.t.
         the input.
     """
-    ph_tensors = tf.get_collection('placeholders') # returns a list of two placeholder tensors,
-                                                   # contain 'images' and 'labels'
-    # get input 'batched_images' tensor
-    for ph in ph_tensors:
-        if 'batched_images' in ph.name:
-            batched_images_t = ph
+    # get batched_images placeholder tensor
+    batched_images_t = tf.get_collection('tower_%d_batched_images' % tower_idx)[0]
 
-    visual_tensors = tf.get_collection('visual') # returns a list of k logits tensors,
+    visual_tensors = tf.get_collection('tower_%d_visual' % tower_idx)
+                                                 # returns a list of k logits tensors,
                                                  # tensors before activation function.
     for vt in visual_tensors:
         print('vt name: ', vt.name)
@@ -217,7 +229,7 @@ def _compute_activation_grads():
     
     return result_grads
 
-def _write_specs_file(write_dir, vis_or_dream_type, dataset, batch_size,
+def _write_specs_file(write_dir, vis_or_dream_type, dataset, total_batch_size,
                       max_epochs, iter_n, step, threshold):
     write_dir = os.path.join(write_dir, 'max_ep_{}-iter_n_{}-step_{}-th_{}'.format(
         max_epochs, iter_n, step, threshold))
@@ -226,26 +238,34 @@ def _write_specs_file(write_dir, vis_or_dream_type, dataset, batch_size,
     with open(os.path.join(write_dir, 'specs.txt'), 'w+') as f:
         f.write('type: {};\n'.format(vis_or_dream_type))
         f.write('dataset: {};\n'.format(dataset))
-        f.write('batch_size: {};\n'.format(batch_size))
+        f.write('total_batch_size: {};\n'.format(total_batch_size))
         f.write('max_epochs: {};\n'.format(max_epochs))
         f.write('iter_n: {};\n'.format(iter_n))
         f.write('step: {};\n'.format(step))
         f.write('threshold: {};\n'.format(threshold))
     return write_dir
 
-def run_visual_session(batch_size, max_epochs, data_dir, dataset,
+def run_visual_session(num_gpus, total_batch_size, max_epochs, data_dir, dataset,
                        iter_n, step, threshold,
                        load_dir, summary_dir, vis_or_dream_type='naive'):
-    """Start visualization session. Producing results to summary_dir.
+    """Start visualization session. Producing visualization results to summary_dir.
 
     Args:
-        load_dir: str, directory that contains checkpoints.
-        summary_dir: str, directory storing the resultant images.
+        num_gpus: number of GPUs available to use.
+        total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
+        max_epochs: maximum epochs to train.
+        data_dir: the directory containing the input data.
+        dataset: the name of the dataset for the experiments.
+        iter_n: number of iterations to add gradients to original image.
+        step: step size of each iteration of gradient ascent to mutliply.
+        threshold: any gradients less than this value will not be added to the original image.
+        load_dir: the directory to load the model.
+        summary_dir: the directory to write the files.
         vis_or_dream_type: 'naive', 'multiscale', 'pyramid' (TODO) or 'dream'
     """
     # Init writing directory
     write_dir = os.path.join(summary_dir, vis_or_dream_type)
-    write_dir = _write_specs_file(write_dir, vis_or_dream_type, dataset, batch_size,
+    write_dir = _write_specs_file(write_dir, vis_or_dream_type, dataset, total_batch_size,
                                   max_epochs, iter_n, step, threshold)
 
     # Find latest checkpoint information
@@ -261,7 +281,7 @@ def run_visual_session(batch_size, max_epochs, data_dir, dataset,
         saver.restore(sess, latest_ckpt_path)
 
         # Calculate the gradients
-        result_grads = _compute_activation_grads()
+        result_grads = _compute_activation_grads(tower_idx=0)
         num_batches_per_epoch = len(result_grads) # number of batches per epoch
         print('Number of gradients computed (= number of batches per epoch): ', 
               num_batches_per_epoch)
@@ -276,13 +296,10 @@ def run_visual_session(batch_size, max_epochs, data_dir, dataset,
         else:
             raise ValueError(
                 "{} is not one of 'naive', 'multiscale', 'pyramid' or 'dream'".format(vis_or_dream_type))
-        batched_dataset, specs = get_batched_dataset(
-            batch_size=batch_size,
-            max_epochs=max_epochs,
-            data_dir=data_dir,
-            dataset=dataset,
-            split=split,
-            num_batches_per_epoch=num_batches_per_epoch)
+        batched_dataset, specs = get_distributed_dataset(
+            total_batch_size, num_gpus, 
+            max_epochs, data_dir, dataset, 
+            split=split, n_repeat=num_batches_per_epoch)
         iterator = batched_dataset.make_initializable_iterator()
         batch_data = iterator.get_next()
         sess.run(iterator.initializer)
@@ -339,18 +356,21 @@ def run_visual_session(batch_size, max_epochs, data_dir, dataset,
                     except tf.errors.OutOfRangeError:
                         break
 
-def visual(data_dir, dataset, model_type,
-           batch_size, summary_dir, max_epochs, 
+def visual(num_gpus, data_dir, dataset,
+           total_batch_size, summary_dir, max_epochs, 
            iter_n, step, threshold, vis_or_dream_type='naive'):
     """Visualize available layers given noise images.
 
     Args:
-        data_dir: The directory containing the input data.
-        dataset: The name of the dataset for the experiments.
-        model_type: The name of the model architecture.
-        batch_size: Total batch size, will be distributed to `num_gpus` GPUs.
-        summary_dir: The directory to write summaries and save the model.
-        max_epochs: Maximum epochs to train.
+        num_gpus: number of GPUs available to use.
+        data_dir: the directory containing the input data.
+        dataset: the name of the dataset for the experiments.
+        total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
+        summary_dir: the directory to write summaries and save the model.
+        max_epochs: maximum epochs to train.
+        iter_n: number of iterations to add gradients to original image.
+        step: step size of each iteration of gradient ascent to mutliply.
+        threshold: any gradients less than this value will not be added to the original image.
         vis_or_dream_type: 'naive', 'multiscale', 'pyramid' (TODO) or 'dream'
     """
     load_dir = summary_dir + '/train/'
@@ -358,22 +378,22 @@ def visual(data_dir, dataset, model_type,
     # Declare the empty model graph
     with tf.Graph().as_default():
         # Call visual experiment
-        run_visual_session(batch_size, max_epochs, data_dir, dataset,
+        run_visual_session(num_gpus, total_batch_size, max_epochs, data_dir, dataset,
                            iter_n, step, threshold,
                            load_dir, summary_dir, vis_or_dream_type)
 
-def run_test_session(iterator, specs, load_dir, summary_dir):
+def run_test_session(iterator, specs, load_dir):
     """Find latest checkpoint and load the graph and variables.
 
     Args:
         iterator: iterator, dataset iterator.
         specs: dict, dictionary containing dataset specifications.
         load_dir: str, directory that contains checkpoints.
-        summary_dir: str, directory storing the checkpoints.
     Raises:
         ckpt files not found.
     """
-    # Find latest checkpoint information
+
+    """Load latest checkpoint"""
     latest_step, latest_ckpt_path = find_latest_checkpoint_info(load_dir)
     if latest_step == -1 or latest_ckpt_path == None:
         raise ValueError('Checkpoint files not found!')
@@ -393,60 +413,57 @@ def run_test_session(iterator, specs, load_dir, summary_dir):
 
         while True: # epoch loop
             try:
-                batch_val = sess.run(batch_data)
-                
                 # Get placeholders and create feed dict
                 feed_dict = {}
-                placeholders = tf.get_collection('placeholders')
-                for ph in placeholders:
-                    if 'batched_images' in ph.name:
-                        feed_dict[ph] = batch_val['images']
-                    elif 'batched_labels' in ph.name:
-                        feed_dict[ph] = batch_val['labels']
-
+                try:
+                    for i in range(specs['num_gpus']):
+                        batch_val = sess.run(batch_data)
+                        feed_dict[tf.get_collection('tower_%d_batched_images' % i)[0]] = batch_val['images']
+                        feed_dict[tf.get_collection('tower_%d_batched_labels' % i)[0]] = batch_val['labels']
+                except:
+                    raise IndexError('index out of range')
+                    
+                # Get accuracy tensor
                 res_acc = tf.get_collection('accuracy')[0]
-                
+                # Calculate one total batch accuracy
                 accuracy = sess.run(
                     res_acc,
                     feed_dict=feed_dict)
+                # Append to the accuracy list.
                 accs.append(accuracy)
             except tf.errors.OutOfRangeError:
                 break    
         print('accuracy {0:.4f}'.format(np.mean(accs)))
 
-def test(data_dir, dataset, model_type, batch_size,
-         summary_dir, max_to_keep, max_epochs):
+def test(num_gpus, data_dir, dataset, model_type, total_batch_size,
+         summary_dir, max_epochs):
     """Restore the graph and variables, and evaluate the the metrics.
 
     Args:
-        data_dir: The directory containing the input data.
-        dataset: The name of the dataset for the experiments.
-        model_type: The name of the model architecture.
-        batch_size: Total batch size, will be distributed to `num_gpus` GPUs.
-        summary_dir: The directory to write summaries and save the model.
-        max_to_keep: Maximum checkpoint files to keep.
-        max_epochs: Maximum epochs to train.
+        num_gpus: number of GPUs available to use.
+        data_dir: the directory containing the input data.
+        dataset: the name of the dataset for the experiments.
+        model_type: the name of the model architecture.
+        total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
+        summary_dir: the directory to load the model.
+        max_epochs: maximum epochs to evaluate, ≡ 1.
     """
     load_dir = summary_dir + '/train/'
-    summary_dir += '/test/'
 
     # Declare the empty model graph
     with tf.Graph().as_default():
         # Get batched dataset and declare initializable iterator
-        batched_dataset, specs = get_batched_dataset(
-            batch_size=batch_size,
-            max_epochs=max_epochs,
-            data_dir=data_dir,
-            dataset=dataset,
-            split='test')
-        iterator = batched_dataset.make_initializable_iterator()
+        distributed_dataset, specs = get_distributed_dataset(
+            total_batch_size, num_gpus, max_epochs, data_dir, dataset, 'test')
+        iterator = distributed_dataset.make_initializable_iterator()
         # Call test experiment
-        run_test_session(iterator, specs, load_dir, summary_dir)
+        run_test_session(iterator, specs, load_dir)
 
 def run_train_session(iterator, specs, # Dataset related
                       summary_dir, max_to_keep, # Checkpoint related
-                      tower_output, save_epochs): # Model related
-    """Starts a session, 
+                      joined_result, save_epochs): # Model related
+    """Starts a session, train the model, write summary into event file,
+    and save the whole graph every {save_epochs} epochs.
 
     Args:
         iterator: iterator, dataset iterator.
@@ -454,7 +471,7 @@ def run_train_session(iterator, specs, # Dataset related
         num_gpus: scalar, number of gpus.
         summary_dir: str, directory storing the checkpoints.
         max_to_keep: scalar, maximum number of ckpt to keep.
-        tower_output: namedtuple, TowerResult('inferred', 'train_op', 
+        joined_result: namedtuple, TowerResult('inferred', 'train_op', 
                                     'summary', 'correct', 'accuracy')
         save_epochs: scalar, how often to save the model
     """
@@ -480,22 +497,15 @@ def run_train_session(iterator, specs, # Dataset related
             step_counter += 1
             
             try:
-                # batch_vals = []
-                # for j in range(num_gpus): # GPU loop
-                #     batch_vals.append(sess.run(batch_data))
-                batch_val = sess.run(batch_data)
-
                 # Get placeholders and create feed_dict
                 feed_dict = {}
-                placeholders = tf.get_collection('placeholders')
-                for ph in placeholders:
-                    if 'batched_images' in ph.name:
-                        feed_dict[ph] = batch_val['images']
-                    elif 'batched_labels' in ph.name:
-                        feed_dict[ph] = batch_val['labels']
-                
+                for i in range(specs['num_gpus']):
+                    batch_val = sess.run(batch_data)
+                    feed_dict[tf.get_collection('tower_%d_batched_images' % i)[0]] = batch_val['images']
+                    feed_dict[tf.get_collection('tower_%d_batched_labels' % i)[0]] = batch_val['labels']
+
                 summary, accuracy, _ = sess.run(
-                    [tower_output.summary, tower_output.accuracy, tower_output.train_op],
+                    [joined_result.summary, joined_result.accuracy, joined_result.train_op],
                     feed_dict=feed_dict)
 
                 """Add summary"""
@@ -539,7 +549,7 @@ def run_train_session(iterator, specs, # Dataset related
             int(total_time % 60),
             accuracy))
 
-def train(hparams, data_dir, dataset, model_type, batch_size,
+def train(hparams, num_gpus, data_dir, dataset, model_type, total_batch_size,
                    summary_dir, max_to_keep,
                    save_epochs, max_epochs):
     """Trains a model with batch sizes of 100 to 50000/100*`max_epochs` steps.
@@ -550,34 +560,31 @@ def train(hparams, data_dir, dataset, model_type, batch_size,
     every step and saves the model every `save_epochs` steps.
 
     Args:
-        hparams: The hyperparameters to build the model graph.
-        data_dir: The directory containing the input data.
-        dataset: The name of the dataset for the experiments.
-        model_type: The name of the model architecture.
-        batch_size: Total batch size, will be distributed to `num_gpus` GPUs.
-        summary_dir: The directory to write summaries and save the model.
-        max_to_keep: Maximum checkpoint files to keep.
-        save_epochs: How often the training model should be saved.
-        max_epochs: Maximum epochs to train.
+        hparams: the hyperparameters to build the model graph.
+        num_gpus: number of GPUs to use.
+        data_dir: the directory containing the input data.
+        dataset: the name of the dataset for the experiments.
+        model_type: the name of the model architecture.
+        total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
+        summary_dir: the directory to write summaries and save the model.
+        max_to_keep: maximum checkpoint files to keep.
+        save_epochs: how often the training model should be saved.
+        max_epochs: maximum epochs to train.
     """
     summary_dir += '/train/'
 
     # Declare the empty model graph
     with tf.Graph().as_default():
         # Get batched dataset and declare initializable iterator
-        batched_dataset, specs = get_batched_dataset(
-            batch_size=batch_size,
-            max_epochs=max_epochs,
-            data_dir=data_dir,
-            dataset=dataset,
-            split='train')
-        iterator = batched_dataset.make_initializable_iterator()
+        distributed_dataset, specs = get_distributed_dataset(
+            total_batch_size, num_gpus, max_epochs, data_dir, dataset, 'train')
+        iterator = distributed_dataset.make_initializable_iterator()
         # Initialize model with hparams and specs
         model = models[model_type](hparams, specs)
         # Build a model on multiple gpus and returns a tuple of 
         # (a list of input tensor placeholders, a list of output tensor placeholders)
-        tower_output = model.build_model_on_single_gpu()
-        # TODO here
+        joined_result = model.build_model_on_single_gpu()
+
         """Print stats"""
         param_stats = tf.contrib.tfprof.model_analyzer.print_model_analysis(
             tf.get_default_graph(),
@@ -586,9 +593,10 @@ def train(hparams, data_dir, dataset, model_type, batch_size,
         """"""
         # Clear summary directory, TODO: start train from where left.
         # Call train experiment
+
         run_train_session(iterator, specs,
                           summary_dir, max_to_keep,
-                          tower_output, save_epochs)
+                          joined_result, save_epochs)
 
 def default_hparams():
     """Builds an HParams object with default hperparameters."""
@@ -610,15 +618,15 @@ def main(_):
         hparams.parse(FLAGS.hparams_override)
 
     if FLAGS.mode == 'train':
-        train(hparams, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.batch_size,
+        train(hparams, FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size,
                        FLAGS.summary_dir, FLAGS.max_to_keep,
                        FLAGS.save_epochs, FLAGS.max_epochs)
     elif FLAGS.mode == 'test':
-        test(FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.batch_size,
-             FLAGS.summary_dir, FLAGS.max_to_keep, FLAGS.max_epochs)
-    elif FLAGS.mode == 'naive' or FLAGS.mode == 'multiscale' or FLAGS.mode == 'pyramid' or FLAGS.mode == 'dream':
-        visual(FLAGS.data_dir, FLAGS.dataset, FLAGS.model,
-               FLAGS.batch_size, FLAGS.summary_dir, FLAGS.max_epochs, 
+        test(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size,
+             FLAGS.summary_dir, FLAGS.max_epochs)
+    elif FLAGS.mode == 'naive' or FLAGS.mode == 'multiscale' or FLAGS.mode == 'pyramid' or FLAGS.mode == 'dream': # TODO
+        visual(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model,
+               FLAGS.total_batch_size, FLAGS.summary_dir, FLAGS.max_epochs, 
                FLAGS.iter_n, float(FLAGS.step), float(FLAGS.threshold), FLAGS.mode)
     else:
         raise ValueError(

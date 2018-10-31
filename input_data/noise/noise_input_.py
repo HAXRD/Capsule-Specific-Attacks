@@ -46,48 +46,57 @@ def inputs(max_epochs, steps_per_epoch=1, depth=3, split='noise', batch_size=1, 
         seed: seed to reproduce pseudo randomness.
     """
     assert steps_per_epoch != None
-    # Dataset specs
+    """Dataset specs"""
     specs = {
         'split': split,
-        'max_epochs': max_epochs,
-        'batch_size': batch_size,
-        'image_dim': 24,
-        'depth': depth,
         'total_size': max_epochs * steps_per_epoch * batch_size,
-        'steps_per_epoch': steps_per_epoch
+        'steps_per_epoch': steps_per_epoch,
+
+        'batch_size': batch_size,
+        'max_epochs': max_epochs,
+
+        'image_size': 24,
+        'depth': depth
     }
 
+    """Set random seed"""
     np.random.seed(seed)
-    # Initialize a grey image with noise.
+
+    """Initialize a grey image with noise"""
     noise_imgs = np.random.uniform(size=(
         specs['batch_size'], 
-        specs['depth'], specs['image_dim'], specs['image_dim'])) + 100.0
-    # Normalize the image
-    noise_imgs = (noise_imgs - noise_imgs.mean()) / noise_imgs.std()
+        specs['depth'], specs['image_size'], specs['image_size'])) + 100.0
+    """Convert into 0. ~ 1. and normalize them"""
+    noise_imgs = noise_imgs * (1. / 255.)
+    # noise_imgs = (noise_imgs - noise_imgs.mean()) / noise_imgs.std()
 
-    # Extract single instance
+    """Process dataset object"""
+    # extract single instance
     t_noise_img = tf.data.Dataset.from_tensor_slices((noise_imgs)) # total_size=1
-    # Create `max_epochs*steps_per_epoch` number of copys
+    # create `max_epochs*steps_per_epoch` number of copys
     t_noise_imgs = t_noise_img.repeat(
         specs['max_epochs']*specs['steps_per_epoch'])
-    # Create batched image tensors
+    # create batched image tensors
     batched_noise_imgs = t_noise_imgs.batch(specs['batch_size'])
-    # Convert to feature
+    # convert to feature
     batched_dataset = batched_noise_imgs.map(_process)
-    # Prefetch 1
+    # prefetch 1
     batched_dataset = batched_dataset.prefetch(1)
 
     return batched_dataset, specs
 
 if __name__ == '__main__':
-    dataset, _ = inputs(2, 1)
+    dataset, _ = inputs(1, 1, 1)
     iterator = dataset.make_initializable_iterator()
     next_features = iterator.get_next()
 
     with tf.Session() as sess:
         sess.run(iterator.initializer)
-        try:
-            single = sess.run(next_features)
-            print(single.shape)
-        except tf.errors.OutOfRangeError:
-            pass
+
+        single = sess.run(next_features)
+        print(single['images'])
+
+        import matplotlib.pyplot as plt 
+        img = np.squeeze(single['images'])
+        plt.imshow(img, cmap='gray')
+        plt.show()
