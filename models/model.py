@@ -21,7 +21,7 @@ from __future__ import print_function
 import abc 
 import collections
 import tensorflow as tf 
-from layers import utils
+from models.layers import utils
 
 Inferred = collections.namedtuple('Inferred',
                                  ('logits', 'remakes'))

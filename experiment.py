@@ -583,7 +583,7 @@ def train(hparams, num_gpus, data_dir, dataset, model_type, total_batch_size,
         model = models[model_type](hparams, specs)
         # Build a model on multiple gpus and returns a tuple of 
         # (a list of input tensor placeholders, a list of output tensor placeholders)
-        joined_result = model.build_model_on_single_gpu()
+        joined_result = model.build_model_on_multi_gpus()
 
         """Print stats"""
         param_stats = tf.contrib.tfprof.model_analyzer.print_model_analysis(
