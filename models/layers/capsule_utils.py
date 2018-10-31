@@ -245,7 +245,7 @@ def conv_slim_capsule(tower_idx, in_tensor, in_dim, in_atoms,
                 **routing_args)
         return activations
 
-def capsule(in_tensor, in_dim, in_atoms,
+def capsule(tower_idx, in_tensor, in_dim, in_atoms,
             out_dim, out_atoms, layer_name,
             **routing_args):
     """Builds a fully connected capsule layer.
@@ -294,6 +294,7 @@ def capsule(in_tensor, in_dim, in_atoms,
             in_shape = tf.shape(in_tensor)
             logit_shape = tf.stack([in_shape[0], in_dim, out_dim])
             activations = _update_routing(
+                tower_idx,
                 votes=votes_reshaped,
                 biases=biases, 
                 logit_shape=logit_shape, 
@@ -328,7 +329,7 @@ def reconstruction(capsule_mask, num_atoms, capsule_embedding, layer_sizes,
         The reconstruction images of shape (batch_size, num_pixels).
     """
     first_layer_size, second_layer_size = layer_sizes
-    capsule_mask_3d = tf.expand_dims(capsule_mask, -1)
+    capsule_mask_3d = tf.expand_dims(tf.cast(capsule_mask, tf.float32), -1)
     atom_mask = tf.tile(capsule_mask_3d, [1, 1, num_atoms])
 
     filtered_embedding = capsule_embedding * atom_mask

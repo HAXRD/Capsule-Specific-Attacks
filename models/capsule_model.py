@@ -104,6 +104,7 @@ class CapsuleModel(model.Model):
         in_dim = self._hparams.num_prime_capsules * height.value * width.value
         
         return capsule_utils.capsule(
+            tower_idx,
             in_tensor=capsule1_3d, 
             in_dim=in_dim, 
             in_atoms=8,
