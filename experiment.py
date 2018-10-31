@@ -415,14 +415,11 @@ def run_test_session(iterator, specs, load_dir):
             try:
                 # Get placeholders and create feed dict
                 feed_dict = {}
-                try:
-                    for i in range(specs['num_gpus']):
-                        batch_val = sess.run(batch_data)
-                        feed_dict[tf.get_collection('tower_%d_batched_images' % i)[0]] = batch_val['images']
-                        feed_dict[tf.get_collection('tower_%d_batched_labels' % i)[0]] = batch_val['labels']
-                except:
-                    raise IndexError('index out of range')
-                    
+                for i in range(specs['num_gpus']):
+                    batch_val = sess.run(batch_data)
+                    feed_dict[tf.get_collection('tower_%d_batched_images' % i)[0]] = batch_val['images']
+                    feed_dict[tf.get_collection('tower_%d_batched_labels' % i)[0]] = batch_val['labels']
+
                 # Get accuracy tensor
                 res_acc = tf.get_collection('accuracy')[0]
                 # Calculate one total batch accuracy
