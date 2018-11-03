@@ -25,6 +25,10 @@ from PIL import Image
 import re
 import os
 
+# image analysis
+from mpl_toolkits import mplot3d
+import matplotlib.pyplot as plt 
+
 def compute_grads(tower_idx):
     """Compute the gradients of the logit norms of the last capsule layer
     w.r.t. the input tensor.
@@ -168,6 +172,21 @@ def write_results(write_dir, t_grad, gsum, img0, img1, lbl0, lbl1, ep_i):
 
     # scale up and write to files
     def _write_to_dir(arr, fn, scale_factor, add_base, write_dir, fmt='jpeg'):
+        """Plot 3D surface"""
+        assert arr.shape[0] == arr.shape[1]
+        arr_size = arr.shape[0]
+        x = np.arange(arr_size)
+        y = np.arange(arr_size)
+        X, Y = np.meshgrid(x, y)
+        Z = arr[X, Y]
+
+        fig = plt.figure()
+        fig.suptitle('Expected bound between 0. ~ 1.')
+        ax = plt.axes(projection='3d')
+        ax.contour3D(X, Y, Z, 100, cmap='viridis', alpha=0.5)
+        ax.view_init(60, 45)
+        fig.savefig(write_dir, 'ana-' + fn + '.' + fmt)
+        
         """Process image"""
         # add base to the array values, suppose add_base=0.5
         arr += add_base # the the scale changes from 0. ~ 1. to 0. ~ 2.
@@ -207,4 +226,3 @@ def write_results(write_dir, t_grad, gsum, img0, img1, lbl0, lbl1, ep_i):
     _write_to_dir(img1, img_fn + '-img1' + ep_suffix + lbl0_suffix + lbl1_suffix + '-base-' + str(0.5) + '-3x', 3, 0.5, write_dir)
     # 5. write scaled accumulated gradients (add the base of 0.5)
     _write_to_dir(gsum, img_fn + '-gsum' + ep_suffix + lbl0_suffix + lbl1_suffix + '-base-' + str(0.5) + '-3x', 3, 0.5, write_dir)
-    
