@@ -79,6 +79,8 @@ models = {
     'cap': capsule_model.CapsuleModel
 }
 
+VIS_TYPES = ['naive_max_norm', 'max_norm_diff', 'naive_max_caps_dim']
+
 def get_distributed_dataset(total_batch_size, num_gpus, 
                             max_epochs, data_dir, dataset, 
                             split='default', n_repeats=None):
@@ -287,84 +289,51 @@ def run_visual_session(num_gpus, total_batch_size, max_epochs, data_dir, dataset
         saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
         saver.restore(sess, latest_ckpt_path)
 
-        # Compute the gradients 
-        result_grads = naive_max_norm.compute_grads(0)
+        # Compute the gradients TODO: conditions here for different experiments.
+        result_grads, batched_images, caps_norms_tensor = naive_max_norm.compute_grads(0)
+        n_repeats = len(result_grads)
+        print('Number of gradients computed (= n_repeats = number of batches per epoch): ', 
+              n_repeats)
 
-        # # Calculate the gradients
-        # result_grads = _compute_activation_grads(tower_idx=0)
-        # num_batches_per_epoch = len(result_grads) # number of batches per epoch
-        # print('Number of gradients computed (= number of batches per epoch): ', 
-        #       num_batches_per_epoch)
+        # Get batched dataset and specs
+        batched_dataset, specs = get_distributed_dataset(
+            total_batch_size, num_gpus, max_epochs,
+            data_dir, dataset, split='train', n_repeats=n_repeats)
+        iterator = batched_dataset.make_initializable_iterator()
+        batch_data = iterator.get_next()
+        sess.run(iterator.initializer)
 
-        # # Get batched dataset and declare initializable iterator
-        # possible_vis_types = ['naive', 'multiscale', 'pyramid']
-        # possible_dream_types = ['dream']
-        # if vis_or_dream_type in possible_vis_types:
-        #     split = 'noise'
-        # elif vis_or_dream_type in possible_dream_types:
-        #     split = 'dream'
-        # else:
-        #     raise ValueError(
-        #         "{} is not one of 'naive', 'multiscale', 'pyramid' or 'dream'".format(vis_or_dream_type))
-        # batched_dataset, specs = get_distributed_dataset(
-        #     total_batch_size, num_gpus, 
-        #     max_epochs, data_dir, dataset, 
-        #     split=split, n_repeat=num_batches_per_epoch)
-        # iterator = batched_dataset.make_initializable_iterator()
-        # batch_data = iterator.get_next()
-        # sess.run(iterator.initializer)
+        num_class_loop = specs['num_classes'] # TODO: = 1 when using noise.
+        for i in range(max_epochs):
+            for j in range(num_class_loop):
+                for k in range(n_repeats):
+                    try:
+                        # Get batched values
+                        batch_val = sess.run(batch_data)
+    
+                        # Run gradient ascent {iter_n} iterations with step_size = {step}
+                        # and threshold to get gradient ascended image img1 and gsum
+                        # (1, 1, 24, 24) or (1, 3, 24, 24)
+                        img0 = batch_val['images']
+                        img1, gsum = naive_max_norm.run_gradient_ascent(
+                            result_grads, img0, batched_images, sess, iter_n, step, threshold)
+    
+                        # Feed both img0 and img1 to get predicted results
+                        # both are one hot (1, 10)
+                        pred0 = sess.run(caps_norms_tensor, feed_dict={batched_images: img0})
+                        pred1 = sess.run(caps_norms_tensor, feed_dict={batched_images: img1})
 
-        # # batch_size ≡ 1
-        # # Visuals (naive, multiscale, pyramid): 
-        # #                 max_epochs * steps_per_epoch(=num_batches_per_epoch)
-        # # Dream: 
-        # #   num_classes * max_epochs * steps_per_epoch(=num_batches_per_epoch)
-        # #
-        # if split == 'noise':
-        #     num_class_loop = 1
-        # elif split == 'dream':
-        #     num_class_loop = specs['num_classes']
-        # else:
-        #     raise ValueError("'split' value invalid")
+                        lbl0 = np.argmax(pred0) # the index of the maximum prediction
+                        lbl1 = np.argmax(pred1) 
 
-        # for i in range(max_epochs):
-        #     for j in range(num_class_loop):
-        #         for k in range(num_batches_per_epoch):
-        #             try:
-        #                 # Get feed dict reference
-        #                 placeholders = tf.get_collection('placeholders')
-        #                 for ph in placeholders:
-        #                     if 'batched_images' in ph.name:
-        #                         ph_ref = ph
-        #                 # Get one batch values
-        #                 batch_val = sess.run(batch_data)
-        #                 # Run different experiments
-        #                 if vis_or_dream_type == 'naive':
-        #                     layer_visual.render_naive(
-        #                         t_grad=result_grads[k], img0=batch_val['images'],
-        #                         in_ph_ref=ph_ref, sess=sess, write_dir=write_dir,
-        #                         iter_n=iter_n, step=step)
-        #                 elif vis_or_dream_type == 'multiscale':
-        #                     layer_visual.render_multiscale(
-        #                         t_grad=result_grads[k], img0=batch_val['images'],
-        #                         in_ph_ref=ph_ref, sess=sess, write_dir=write_dir)
-        #                 elif vis_or_dream_type == 'pyramid':
-        #                     raise NotImplementedError('pyramid not implemented!')
-        #                 elif vis_or_dream_type == 'dream':
-        #                     lbl = batch_val['labels']
-        #                     layer_visual.render_naive(
-        #                         t_grad=result_grads[k], img0=batch_val['images'],
-        #                         in_ph_ref=ph_ref, sess=sess, write_dir=write_dir, 
-        #                         iter_n=iter_n, step=step, threshold=threshold, ep_i=i, lbl=lbl)
-        #                 else:
-        #                     raise ValueError("mode type is not one of 'train', 'test', 'naive', 'multiscale', 'pyramid', or 'dream'!")
-        #                 print('\n{0} {1} {0} total:class:gradient = {2:.1f}% ~ {3:.1f}% ~ {4:.1f}%'.format(
-        #                     ' '*3, '-'*5, 
-        #                     100.0*(i * num_class_loop * num_batches_per_epoch + j * num_batches_per_epoch + k + 1) / (max_epochs * num_class_loop * num_batches_per_epoch),
-        #                     100.0*(j * num_batches_per_epoch + k + 1)/(num_class_loop * num_batches_per_epoch),
-        #                     100.0*(k + 1)/num_batches_per_epoch))
-        #             except tf.errors.OutOfRangeError:
-        #                 break
+                        naive_max_norm.write_results(write_dir, result_grads, gsum, img0, img1, lbl0, lbl1, i)
+                        print('\n{0} {1} {0} total:class:gradient = {2:.1f}% ~ {3:.1f}% ~ {4:.1f}%'.format(
+                            ' '*3, '-'*5, 
+                            100.0*(i * num_class_loop * n_repeats + j * n_repeats + k + 1) / (max_epochs * num_class_loop * n_repeats),
+                            100.0*(j * n_repeats + k + 1)/(num_class_loop * n_repeats),
+                            100.0*(k + 1)/n_repeats))
+                    except tf.errors.OutOfRangeError:
+                        break
 
 def visual(num_gpus, data_dir, dataset,
            total_batch_size, summary_dir, max_epochs, 
@@ -631,8 +600,8 @@ def main(_):
     elif FLAGS.mode == 'test':
         test(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size,
              FLAGS.summary_dir, FLAGS.max_epochs)
-    elif FLAGS.mode == 'naive' or FLAGS.mode == 'multiscale' or FLAGS.mode == 'pyramid' or FLAGS.mode == 'dream': # TODO
-        visual(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model,
+    elif FLAGS.mode in VIS_TYPES:
+        visual(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, 
                FLAGS.total_batch_size, FLAGS.summary_dir, FLAGS.max_epochs, 
                FLAGS.iter_n, float(FLAGS.step), float(FLAGS.threshold), FLAGS.mode)
     else:
