@@ -129,6 +129,8 @@ def run_gradient_ascent(t_grad, img0, in_ph, sess,
         img += g*step # (1, 1, 24, 24) or (1, 3, 24, 24)
         gsum += g*step # (1, 1, 24, 24) or (1, 3, 24, 24)
 
+        # TODO: make it toggle
+        img = np.clip(img, 0., 1.)
         print('{0:.1f}%'.format((i+1)*100.0/iter_n), end='\r')
     print()
 
@@ -180,12 +182,31 @@ def write_results(write_dir, t_grad, gsum, img0, img1, lbl0, lbl1, ep_i):
         X, Y = np.meshgrid(x, y)
         Z = arr[X, Y]
 
-        fig = plt.figure()
+        fig = plt.figure(figsize=(7, 7))
         fig.suptitle('Expected bound between 0. ~ 1.')
-        ax = plt.axes(projection='3d')
+        
+        ax = fig.add_subplot(2, 2, 1, projection='3d')
+        ax.set_title('60, 45')
         ax.contour3D(X, Y, Z, 100, cmap='viridis', alpha=0.5)
         ax.view_init(60, 45)
-        fig.savefig(write_dir, 'ana-' + fn + '.' + fmt)
+
+        ax = fig.add_subplot(2, 2, 2, projection='3d')
+        ax.set_title('90, 0')
+        ax.contour3D(X, Y, Z, 100, cmap='viridis', alpha=0.5)
+        ax.view_init(90, 0)
+
+        ax = fig.add_subplot(2, 2, 3, projection='3d')
+        ax.set_title('-20, 0')
+        ax.contour3D(X, Y, Z, 100, cmap='viridis', alpha=0.5)
+        ax.view_init(-20, 0)
+
+        ax = fig.add_subplot(2, 2, 4, projection='3d')
+        ax.set_title('-20, 90')
+        ax.contour3D(X, Y, Z, 100, cmap='viridis', alpha=0.5)
+        ax.view_init(-20, 90)
+
+        fig.tight_layout()
+        fig.savefig(os.path.join(write_dir, 'ana-' + fn + '.' + fmt))
         
         """Process image"""
         # add base to the array values, suppose add_base=0.5
