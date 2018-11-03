@@ -298,7 +298,7 @@ def run_visual_session(num_gpus, total_batch_size, max_epochs, data_dir, dataset
         # Get batched dataset and specs
         batched_dataset, specs = get_distributed_dataset(
             total_batch_size, num_gpus, max_epochs,
-            data_dir, dataset, split='train', n_repeats=n_repeats)
+            data_dir, dataset, split='dream', n_repeats=n_repeats)
         iterator = batched_dataset.make_initializable_iterator()
         batch_data = iterator.get_next()
         sess.run(iterator.initializer)
@@ -316,7 +316,7 @@ def run_visual_session(num_gpus, total_batch_size, max_epochs, data_dir, dataset
                         # (1, 1, 24, 24) or (1, 3, 24, 24)
                         img0 = batch_val['images']
                         img1, gsum = naive_max_norm.run_gradient_ascent(
-                            result_grads, img0, batched_images, sess, iter_n, step, threshold)
+                            result_grads[k], img0, batched_images, sess, iter_n, step, threshold)
     
                         # Feed both img0 and img1 to get predicted results
                         # both are one hot (1, 10)
@@ -326,7 +326,7 @@ def run_visual_session(num_gpus, total_batch_size, max_epochs, data_dir, dataset
                         lbl0 = np.argmax(pred0) # the index of the maximum prediction
                         lbl1 = np.argmax(pred1) 
 
-                        naive_max_norm.write_results(write_dir, result_grads, gsum, img0, img1, lbl0, lbl1, i)
+                        naive_max_norm.write_results(write_dir, result_grads[k], gsum, img0, img1, lbl0, lbl1, i)
                         print('\n{0} {1} {0} total:class:gradient = {2:.1f}% ~ {3:.1f}% ~ {4:.1f}%'.format(
                             ' '*3, '-'*5, 
                             100.0*(i * num_class_loop * n_repeats + j * n_repeats + k + 1) / (max_epochs * num_class_loop * n_repeats),

@@ -151,7 +151,7 @@ def write_results(write_dir, t_grad, gsum, img0, img1, lbl0, lbl1, ep_i):
     gsum = _transpose_n_squeeze(gsum)
     img0 = _transpose_n_squeeze(img0)
     img1 = _transpose_n_squeeze(img1)
-    assert img0 == img1
+    assert img0.shape == img1.shape
 
     # shorten the filename
     def _shorten_filename(given_grad_t):
@@ -167,7 +167,7 @@ def write_results(write_dir, t_grad, gsum, img0, img1, lbl0, lbl1, ep_i):
     lbl1_suffix = '-lbl1-' + str(lbl1)
 
     # scale up and write to files
-    def _write_to_dir(arr, fn, scale_factor, add_base, write_dir, fmt='jpg'):
+    def _write_to_dir(arr, fn, scale_factor, add_base, write_dir, fmt='jpeg'):
         """Process image"""
         # add base to the array values, suppose add_base=0.5
         arr += add_base # the the scale changes from 0. ~ 1. to 0. ~ 2.
@@ -198,11 +198,11 @@ def write_results(write_dir, t_grad, gsum, img0, img1, lbl0, lbl1, ep_i):
         img.save(fpath, format=fmt)
         print('Image saved to ', fpath)
     # 1. write original image (no adding base)
-    _write_to_dir(img0, img_fn + '-img0' + ep_suffix + lbl0_suffix, 1, 0.0, write_dir)
+    # _write_to_dir(img0, img_fn + '-img0' + ep_suffix + lbl0_suffix, 1, 0.0, write_dir)
     # 2. write original image (add the base of 0.5)
-    _write_to_dir(img0, img_fn + '-img0' + ep_suffix + lbl0_suffix + '-base-' + str(0.5), 1, 0.5, write_dir)
+    # _write_to_dir(img0, img_fn + '-img0' + ep_suffix + lbl0_suffix + '-base-' + str(0.5), 1, 0.5, write_dir)
     # 3. write original processed image (add the base of 0.5)
-    _write_to_dir(img1, img_fn + '-img1' + ep_suffix + lbl0_suffix + lbl1_suffix + '-base-' + str(0.5), 1, 0.5, write_dir)
+    # _write_to_dir(img1, img_fn + '-img1' + ep_suffix + lbl0_suffix + lbl1_suffix + '-base-' + str(0.5), 1, 0.5, write_dir)
     # 4. write scaled processed image (add the base of 0.5)
     _write_to_dir(img1, img_fn + '-img1' + ep_suffix + lbl0_suffix + lbl1_suffix + '-base-' + str(0.5) + '-3x', 3, 0.5, write_dir)
     # 5. write scaled accumulated gradients (add the base of 0.5)
