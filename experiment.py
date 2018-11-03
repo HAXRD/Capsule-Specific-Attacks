@@ -36,25 +36,25 @@ from input_data.noise import noise_input_
 from models import cnn_model
 from models import capsule_model
 from dream import layer_visual
-from grad import naive_max_norm
+from grad import naive_max_norm, max_norm_diff, utils
 
 FLAGS = tf.flags.FLAGS
 
-tf.flags.DEFINE_integer('num_gpus', 1,
+tf.flags.DEFINE_integer('num_gpus', 2,
                         'Number of GPUs to use.')
 tf.flags.DEFINE_string('mode', 'train',
-                       'train, test, naive, multiscale, dream')
+                       'train, test, naive_max_norm, max_norm_diff, naive_max_caps_dim')
 tf.flags.DEFINE_string('hparams_override', None,
                         '--hparams_override=num_prime_capsules=64,padding=SAME,leaky=true,remake=false')
 tf.flags.DEFINE_string('data_dir', None, 
                        'The data directory.')
-tf.flags.DEFINE_string('dataset', 'cifar10',
+tf.flags.DEFINE_string('dataset', 'mnist',
                        'The dataset to use for the experiment.\n'
                        'mnist, cifar10.')
-tf.flags.DEFINE_string('model', 'cnn',
+tf.flags.DEFINE_string('model', 'cap',
                        'The model to use for the experiment.\n'
                        'cap or cnn')
-tf.flags.DEFINE_integer('total_batch_size', 100, 
+tf.flags.DEFINE_integer('total_batch_size', 1, 
                         'Total batch size.')
 tf.flags.DEFINE_string('summary_dir', './summary',
                        'Main directory for the experiments.')
@@ -77,6 +77,12 @@ tf.flags.DEFINE_string('threshold', '0.0',
 models = {
     'cnn': cnn_model.CNNModel,
     'cap': capsule_model.CapsuleModel
+}
+
+vis_grad_computer = {
+    'naive_max_norm': naive_max_norm, 
+    'max_norm_diff': max_norm_diff, 
+    'naive_max_caps_dim': None
 }
 
 VIS_TYPES = ['naive_max_norm', 'max_norm_diff', 'naive_max_caps_dim']
@@ -256,7 +262,7 @@ def _write_specs_file(write_dir, vis_or_dream_type, dataset, total_batch_size,
 
 def run_visual_session(num_gpus, total_batch_size, max_epochs, data_dir, dataset,
                        iter_n, step, threshold,
-                       load_dir, summary_dir, vis_or_dream_type='naive'):
+                       load_dir, summary_dir, vis_or_dream_type):
     """Start visualization session. Producing visualization results to summary_dir.
 
     Args:
@@ -290,7 +296,7 @@ def run_visual_session(num_gpus, total_batch_size, max_epochs, data_dir, dataset
         saver.restore(sess, latest_ckpt_path)
 
         # Compute the gradients TODO: conditions here for different experiments.
-        result_grads, batched_images, caps_norms_tensor = naive_max_norm.compute_grads(0)
+        result_grads, batched_images, caps_norms_tensor = vis_grad_computer[vis_or_dream_type].compute_grads(0)
         n_repeats = len(result_grads)
         print('Number of gradients computed (= n_repeats = number of batches per epoch): ', 
               n_repeats)
@@ -315,7 +321,7 @@ def run_visual_session(num_gpus, total_batch_size, max_epochs, data_dir, dataset
                         # and threshold to get gradient ascended image img1 and gsum
                         # (1, 1, 24, 24) or (1, 3, 24, 24)
                         img0 = batch_val['images']
-                        img1, gsum = naive_max_norm.run_gradient_ascent(
+                        img1, gsum = utils.run_gradient_ascent(
                             result_grads[k], img0, batched_images, sess, iter_n, step, threshold)
     
                         # Feed both img0 and img1 to get predicted results
@@ -326,7 +332,7 @@ def run_visual_session(num_gpus, total_batch_size, max_epochs, data_dir, dataset
                         lbl0 = np.argmax(pred0) # the index of the maximum prediction
                         lbl1 = np.argmax(pred1) 
 
-                        naive_max_norm.write_results(write_dir, result_grads[k], gsum, img0, img1, lbl0, lbl1, i)
+                        utils.write_results(write_dir, result_grads[k], gsum, img0, img1, lbl0, lbl1, i)
                         print('\n{0} {1} {0} total:class:gradient = {2:.1f}% ~ {3:.1f}% ~ {4:.1f}%'.format(
                             ' '*3, '-'*5, 
                             100.0*(i * num_class_loop * n_repeats + j * n_repeats + k + 1) / (max_epochs * num_class_loop * n_repeats),
