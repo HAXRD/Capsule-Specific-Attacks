@@ -94,12 +94,19 @@ def write_results(write_dir, t_grad, gsum, img0, img1, lbl0, lbl1, ep_i):
     assert img0.shape == img1.shape
 
     # shorten the filename
+    print(t_grad.name)
+    # naive_max_norm gradients/tower_0/logits/split_op_0/tower_0/conv1/Conv2D_grad/Conv2DBackpropInput:0
+    # max_norm_diff gradients/tower_0/logits/split_op_0_diff/tower_0/conv1/Conv2D_grad/Conv2DBackpropInput:0
     def _shorten_filename(given_grad_t):
         fn_splitted_list = re.split('/|:', given_grad_t.name)
+        print(fn_splitted_list)
         second_tower_idx = [i for i, part in enumerate(fn_splitted_list) if 'tower' in part][1]
         img_fn = '-'.join(fn_splitted_list[:second_tower_idx])
         return img_fn
-    img_fn = _shorten_filename(t_grad)
+    img_fn = _shorten_filename(t_grad) 
+    print(img_fn)
+    # naive_max_norm gradients-tower_0-logits-split_op_0
+    # max_norm_diff  gradients-tower_0-logits-split_op_0_diff
 
     # create epoch prefix, label0 prefix and label1 prefix
     ep_suffix = '-ep-' + str(ep_i)

@@ -75,7 +75,8 @@ def compute_grads(tower_idx):
     for splited_by_D1_t in caps_split_D1_list:
         temp = tf.split(
             splited_by_D1_t, num_or_size_splits=splited_by_D1_t.get_shape()[2],
-            axis=2, name=splited_by_D1_t.name.split(':')[:-1] + '/dim_split')
+            axis=2, name='-'.join(splited_by_D1_t.name.split(':')[:-1]) + '/dim_split')
+        caps_split_D2_list.append(temp)
     # flatten caps_split_D2_list 
     caps_split_D2_list = [item for sub in caps_split_D2_list for item in sub]
     # squeeze out dimension 2
@@ -83,7 +84,7 @@ def compute_grads(tower_idx):
 
     """Compute gradients"""
     res_grads = []
-    for i, caps_single_dim_t in enumerate(caps_split_D2_list):
+    for i, caps_single_dim_t in enumerate(caps_split_D2_list[:5]):
         # process name 
         caps_single_dim_t_name = '_'.join(caps_single_dim_t.name.split(':'))
         # define objective function
