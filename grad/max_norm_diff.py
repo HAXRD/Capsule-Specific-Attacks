@@ -59,8 +59,7 @@ def compute_grads(tower_idx):
     print('='*10)
 
     # shorten tensor prefix name
-    caps_norms_name_prefix = '/'.join(caps_norms_tensor.name.split('/')[:-1]) + '/' \
-                           + caps_norms_tensor.name.split('/')[-1][:-2]
+    caps_norms_name_prefix = '/'.join(caps_norms_tensor.name.split('/')[:-1])
     print(caps_norms_name_prefix)
     print(caps_norms_tensor.get_shape())
 
