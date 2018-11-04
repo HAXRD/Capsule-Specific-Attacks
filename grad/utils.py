@@ -21,11 +21,14 @@ import numpy as np
 from PIL import Image
 import re
 import os
+import collections
 
 # image analysis
 from mpl_toolkits import mplot3d
 import matplotlib.pyplot as plt 
 
+VisualInfo = collections.namedtuple('VisualInfo', ('target_class', 'epoch_idx', 
+                                                   'lbl0_class', 'lbl1_class'))       
 
 def run_gradient_ascent(t_grad, img0, in_ph, sess,
                         iter_n, step, threshold=0.0):
@@ -108,13 +111,28 @@ def write_results(write_dir, t_grad, gsum, img0, img1, lbl0, lbl1, ep_i):
     # naive_max_norm gradients-tower_0-logits-split_op_0
     # max_norm_diff  gradients-tower_0-logits-split_op_0_diff
 
-    # create epoch prefix, label0 prefix and label1 prefix
-    ep_suffix = '-ep-' + str(ep_i)
-    lbl0_suffix = '-lbl0-' + str(lbl0)
-    lbl1_suffix = '-lbl1-' + str(lbl1)
+    # extract useful information for visualization: all string type
+    target_class = re.findall(r'\d+', re.findall(r'split_op_\d+', img_fn)[0])[0] # string
+    epoch_idx = str(ep_i)
+    lbl0_class = str(lbl0)
+    lbl1_class = str(lbl1)
+    
+    visual_info = VisualInfo(target_class, epoch_idx, lbl0_class, lbl1_class)
 
     # scale up and write to files
-    def _write_to_dir(arr, fn, scale_factor, add_base, write_dir, fmt='jpeg'):
+    def _write_to_dir(arr, array_type, vis_info, scale_factor, add_base, write_dir, fmt='jpeg'):
+        """Create base file name and analysis title description"""
+        base_fn = array_type + '-' + \
+                  'target_class_' + vis_info.target_class + '-' + \
+                  'instance_' + vis_info.epoch_idx + '-' + \
+                  'lbl0_' + vis_info.lbl0_class + '-' + \
+                  'lbl1_' + vis_info.lbl1_class 
+        title_desc = 'Given input array type: {}\n'.format(array_type) + \
+                     'Label of the target class suppose to maximize: label {}\n'.format(vis_info.target_class) + \
+                     'Instance index of sampled digit: {}th digit\n'.format(vis_info.epoch_idx) + \
+                     'Original image predicted label before processing: label {}\n'.format(vis_info.lbl0_class) + \
+                     'Processed image predicted label: label {}\n'.format(vis_info.lbl1_class)
+
         """Plot 3D surface"""
         assert arr.shape[0] == arr.shape[1]
         arr_size = arr.shape[0]
@@ -124,29 +142,29 @@ def write_results(write_dir, t_grad, gsum, img0, img1, lbl0, lbl1, ep_i):
         Z = arr[X, Y]
 
         fig = plt.figure(figsize=(7, 7))
-        fig.suptitle('Expected bound between 0. ~ 1.')
+        fig.suptitle(title_desc)
         
         ax = fig.add_subplot(2, 2, 1, projection='3d')
-        ax.set_title('60, 45')
+        ax.set_title('General')
         ax.contour3D(X, Y, Z, 100, cmap='viridis', alpha=0.5)
         ax.view_init(60, 45)
 
         ax = fig.add_subplot(2, 2, 2, projection='3d')
-        ax.set_title('90, 0')
+        ax.set_title('Top')
         ax.contour3D(X, Y, Z, 100, cmap='viridis', alpha=0.5)
         ax.view_init(90, 0)
 
         ax = fig.add_subplot(2, 2, 3, projection='3d')
-        ax.set_title('-20, 0')
+        ax.set_title('Front')
         ax.contour3D(X, Y, Z, 100, cmap='viridis', alpha=0.5)
         ax.view_init(-20, 0)
 
         ax = fig.add_subplot(2, 2, 4, projection='3d')
-        ax.set_title('-20, 90')
+        ax.set_title('Side')
         ax.contour3D(X, Y, Z, 100, cmap='viridis', alpha=0.5)
         ax.view_init(-20, 90)
 
-        fig.savefig(os.path.join(write_dir, 'ana-' + fn + '.' + fmt))
+        fig.savefig(os.path.join(write_dir, 'analysis-' + base_fn + '.' + fmt))
         plt.close()
 
         """Process image"""
@@ -174,17 +192,18 @@ def write_results(write_dir, t_grad, gsum, img0, img1, lbl0, lbl1, ep_i):
         # create directory if not exists
         if not os.path.exists(write_dir):
             os.makedirs(write_dir)
-        fpath = os.path.join(write_dir, fn + '.' + fmt)
+        fpath = os.path.join(write_dir, base_fn + '-base_{}-{}x.{}'.format(add_base, scale_factor, fmt))
         # save image
         img.save(fpath, format=fmt)
         # print('Image saved to ', fpath)
     # 1. write original image (no adding base)
-    # _write_to_dir(img0, img_fn + '-img0' + ep_suffix + lbl0_suffix, 1, 0.0, write_dir)
+    _write_to_dir(img0, 'img', visual_info, 1, 0.0, write_dir)
     # 2. write original image (add the base of 0.5)
-    # _write_to_dir(img0, img_fn + '-img0' + ep_suffix + lbl0_suffix + '-base-' + str(0.5), 1, 0.5, write_dir)
+    _write_to_dir(img0, 'img', visual_info, 1, 0.5, write_dir)
     # 3. write original processed image (add the base of 0.5)
     # _write_to_dir(img1, img_fn + '-img1' + ep_suffix + lbl0_suffix + lbl1_suffix + '-base-' + str(0.5), 1, 0.5, write_dir)
+    _write_to_dir(img1, 'img', visual_info, 1, 0.5, write_dir)
     # 4. write scaled processed image (add the base of 0.5)
-    _write_to_dir(img1, img_fn + '-img1' + ep_suffix + lbl0_suffix + lbl1_suffix + '-base-' + str(0.5) + '-3x', 3, 0.5, write_dir)
+    _write_to_dir(img1, 'img', visual_info, 3, 0.5, write_dir)
     # 5. write scaled accumulated gradients (add the base of 0.5)
-    _write_to_dir(gsum, img_fn + '-gsum' + ep_suffix + lbl0_suffix + lbl1_suffix + '-base-' + str(0.5) + '-3x', 3, 0.5, write_dir)
+    _write_to_dir(gsum, 'gsum', visual_info, 3, 0.5, write_dir)
