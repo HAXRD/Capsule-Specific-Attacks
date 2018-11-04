@@ -36,7 +36,7 @@ from input_data.noise import noise_input_
 from models import cnn_model
 from models import capsule_model
 from dream import layer_visual
-from grad import naive_max_norm, max_norm_diff, utils
+from grad import naive_max_norm, max_norm_diff, naive_max_caps_dim, utils
 
 FLAGS = tf.flags.FLAGS
 
@@ -65,9 +65,9 @@ tf.flags.DEFINE_integer('max_epochs', 20,
                         'Number of epochs to train, test, naive, multiscale or dream.\n'
                         'train ~ 1000 (20 when debugging);\n'
                         'test = 1;\n'
-                        'naive = 1;\n'
-                        'multiscale = 1;\n'
-                        'dream = # of different samples for each class')
+                        'naive_max_norm = 1;\n'
+                        'max_norm_diff = 1;\n'
+                        'naive_max_caps_dim = 1.')
 tf.flags.DEFINE_integer('iter_n', 10,
                         'Number of iteration to run the gradient ascent')
 tf.flags.DEFINE_string('step', '1.0',
@@ -82,7 +82,7 @@ models = {
 vis_grad_computer = {
     'naive_max_norm': naive_max_norm, 
     'max_norm_diff': max_norm_diff, 
-    'naive_max_caps_dim': None
+    'naive_max_caps_dim': naive_max_caps_dim
 }
 
 VIS_TYPES = ['naive_max_norm', 'max_norm_diff', 'naive_max_caps_dim']
@@ -181,69 +181,6 @@ def extract_step(path):
     file_name = os.path.basename(path)
     return int(file_name.split('-')[-1])
 
-def _compute_activation_grads(tower_idx):
-    """Compute the averaged activation grads. Because the weights are 
-    shared among towers, so we simply take one tower to compute the 
-    gradients instead of calculating the gradients of all the towers. 
-    This function adds some extra ops to the original graph, namely 
-    calculating the gradients of the objective functions w.r.t. 
-    input batched_images.
-    
-    Args:
-        tower_idx: the index number for this tower. Each tower is named
-            as tower_{tower_idx} and resides on gpu:{tower_idx}.
-    Returns:
-        A dictionary whose keys are the name of the target layer and 
-        values are the gradients of the objective functions w.r.t.
-        the input.
-    """
-    # get batched_images placeholder tensor
-    batched_images_t = tf.get_collection('tower_%d_batched_images' % tower_idx)[0]
-
-    visual_tensors = tf.get_collection('tower_%d_visual' % tower_idx)
-                                                 # returns a list of k logits tensors,
-                                                 # tensors before activation function.
-    for vt in visual_tensors:
-        print('vt name: ', vt.name)
-    result_grads = []
-    for logit_t in visual_tensors[-1:]:
-        # write tensor prefix name
-        logit_t_name_prefix = '/'.join(logit_t.name.split('/')[:-1]) + '/' \
-                              + logit_t.name.split('/')[-1][:-2]
-        print(logit_t_name_prefix)
-        print(logit_t.get_shape()) # (?, ch, ...)
-        # split the tensor by channels, a list containing `ch` number of tensors 
-        # each having the shape of (?, 1, ...)
-        splited_logit_t_by_chs = tf.split(logit_t, num_or_size_splits=logit_t.get_shape()[1],
-                                          axis=1, name=logit_t_name_prefix + '/split_op')
-        """
-        last_ch_t_name= '_'.join(splited_logit_t_by_chs[-1].name.split(':'))
-        last_ch_obj = tf.reduce_mean(splited_logit_t_by_chs[-1], name=last_ch_t_name+'/obj')
-        last_ch_grads = tf.gradients(last_ch_obj, batched_images_t, name=last_ch_t_name+'/grads')
-        result_grads.append(last_ch_grads)
-        print(splited_logit_t_by_chs[-1], last_ch_obj, batched_images_t, last_ch_grads)
-        """
-        # take first 5 splited channels
-        splited_logit_t_by_chs = splited_logit_t_by_chs
-
-        for ch_idx, ch_t in enumerate(splited_logit_t_by_chs):
-            ch_t_name = '_'.join(ch_t.name.split(':'))
-            # ch_t_obj = tf.reduce_mean(ch_t, name=ch_t_name+'/obj')
-            ch_t_obj = ch_t
-            ch_t_grads = tf.gradients(ch_t_obj, batched_images_t, name='gradients/' + ch_t_name)
-            #ch_t_grads = tf.gradients(ch_t_obj, batched_images_t)
-            result_grads.append(ch_t_grads)
-            # print(ch_t, ch_t_obj, batched_images_t, ch_t_grads)
-            print('Done processing {0} ---- {1:.2f}%'.format(
-                ch_t_name, (1+ch_idx)*100/float(len(splited_logit_t_by_chs))))
-        print("")
-        
-    print('Gradients computing completed!')
-    # flatten the list
-    result_grads = [item for sub in result_grads for item in sub]
-    
-    return result_grads
-
 def _write_specs_file(write_dir, vis_or_dream_type, dataset, total_batch_size,
                       max_epochs, iter_n, step, threshold):
     write_dir = os.path.join(write_dir, 'max_ep_{}-iter_n_{}-step_{}-th_{}'.format(
@@ -333,13 +270,14 @@ def run_visual_session(num_gpus, total_batch_size, max_epochs, data_dir, dataset
                         lbl1 = np.argmax(pred1) 
 
                         utils.write_results(write_dir, result_grads[k], gsum, img0, img1, lbl0, lbl1, i)
-                        print('\n{0} {1} {0} total:class:gradient = {2:.1f}% ~ {3:.1f}% ~ {4:.1f}%'.format(
-                            ' '*3, '-'*5, 
+                        print('{0} {1} total:class:gradient = {2:.1f}% ~ {3:.1f}% ~ {4:.1f}%'.format(
+                            ' '*5, '-'*5, 
                             100.0*(i * num_class_loop * n_repeats + j * n_repeats + k + 1) / (max_epochs * num_class_loop * n_repeats),
                             100.0*(j * n_repeats + k + 1)/(num_class_loop * n_repeats),
-                            100.0*(k + 1)/n_repeats))
+                            100.0*(k + 1)/n_repeats), end='\r')
                     except tf.errors.OutOfRangeError:
                         break
+        print()
 
 def visual(num_gpus, data_dir, dataset,
            total_batch_size, summary_dir, max_epochs, 

@@ -47,7 +47,7 @@ def run_gradient_ascent(t_grad, img0, in_ph, sess,
         gsum: the accumulated gradient sum, (1, 1, 24, 24) or (1, 3, 24, 24)
     """
     # show gradient tensor information
-    print('gradient shape ~ ', t_grad.shape)
+    # print('gradient shape ~ ', t_grad.shape)
     img = img0.copy() # (1, 1, 24, 24) or (1, 3, 24, 24)
     gsum = np.zeros_like(img) # all 0, TODO: need to handle the negative gradients.
 
@@ -65,8 +65,8 @@ def run_gradient_ascent(t_grad, img0, in_ph, sess,
 
         # TODO: make it toggle
         img = np.clip(img, 0., 1.)
-        print('{0:.1f}%'.format((i+1)*100.0/iter_n), end='\r')
-    print()
+        # print('{0:.1f}%'.format((i+1)*100.0/iter_n), end='\r')
+    # print()
 
     return img, gsum
 
@@ -139,9 +139,9 @@ def write_results(write_dir, t_grad, gsum, img0, img1, lbl0, lbl1, ep_i):
         ax.contour3D(X, Y, Z, 100, cmap='viridis', alpha=0.5)
         ax.view_init(-20, 90)
 
-        fig.tight_layout()
         fig.savefig(os.path.join(write_dir, 'ana-' + fn + '.' + fmt))
-        
+        plt.close()
+
         """Process image"""
         # add base to the array values, suppose add_base=0.5
         arr += add_base # the the scale changes from 0. ~ 1. to 0. ~ 2.
@@ -170,7 +170,7 @@ def write_results(write_dir, t_grad, gsum, img0, img1, lbl0, lbl1, ep_i):
         fpath = os.path.join(write_dir, fn + '.' + fmt)
         # save image
         img.save(fpath, format=fmt)
-        print('Image saved to ', fpath)
+        # print('Image saved to ', fpath)
     # 1. write original image (no adding base)
     # _write_to_dir(img0, img_fn + '-img0' + ep_suffix + lbl0_suffix, 1, 0.0, write_dir)
     # 2. write original image (add the base of 0.5)
