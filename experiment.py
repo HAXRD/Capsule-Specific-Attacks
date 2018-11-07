@@ -31,7 +31,7 @@ import numpy as np
 import tensorflow as tf 
 
 from input_data.mnist import mnist_input, mnist_dream_inputs
-from input_data.fashion-mnist import fashion_mnist_input
+from input_data.fashion_mnist import fashion_mnist_input
 from input_data.cifar10 import cifar10_input
 from input_data.noise import noise_input_
 from models import cnn_model
