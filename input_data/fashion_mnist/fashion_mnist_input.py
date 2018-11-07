@@ -29,24 +29,29 @@ def _single_process(image, label, specs):
     Returns:
         feature: a dictionary contains image, label, recons_image, recons_label.
     """
-    # expand image dimensions into (HWC)
-    image = tf.expand_dims(image, -1)
+    image = tf.expand_dims(image, -1) # (HWC)
     if specs['distort']:
-        resized_size = 24
-        # resize images
-        image = tf.image.resize_images(image, [resized_size, resized_size])
+        cropped_size = 24
         if specs['split'] == 'train':
-            # random rotation within -15° ~ 15°
-            image = tf.contrib.image.rotate(
-                image, random.uniform(-0.26179938779, 0.26179938779))
-    
+            if bool(random.getrandbits(1)) == True:
+                # random flipping
+                image = tf.image.flip_left_right(image) 
+            # random cropping
+            image = tf.random_crop(image, [cropped_size, cropped_size, 1])
+        elif specs['split'] == 'test':
+            # central cropping 
+            image = tf.image.resize_image_with_crop_or_pad(
+                image, cropped_size, cropped_size)
+    else:
+        # expand image dimensions into (HWC)
+        image = tf.expand_dims(image, -1) # (HWC)
     # convert from 0 ~ 255 to 0. ~ 1.
     image = tf.cast(image, tf.float32) * (1. / 255.)
     # transpose image into (CHW)
-    image = tf.transpose(image, [2, 0, 1]) # (CHW)
-    
+    image = tf.transpose(image, [2, 0, 1])
+
     feature = {
-        'image': image,
+        'image': image, 
         'label': tf.one_hot(label, 10)
     }
     return feature
