@@ -31,6 +31,7 @@ import numpy as np
 import tensorflow as tf 
 
 from input_data.mnist import mnist_input, mnist_dream_inputs
+from input_data.fashion-mnist import fashion_mnist_input
 from input_data.cifar10 import cifar10_input
 from input_data.noise import noise_input_
 from models import cnn_model
@@ -50,7 +51,7 @@ tf.flags.DEFINE_string('data_dir', None,
                        'The data directory.')
 tf.flags.DEFINE_string('dataset', 'mnist',
                        'The dataset to use for the experiment.\n'
-                       'mnist, cifar10.')
+                       'mnist, fashion_mnist, cifar10.')
 tf.flags.DEFINE_string('model', 'cap',
                        'The model to use for the experiment.\n'
                        'cap or cnn')
@@ -127,7 +128,9 @@ def get_distributed_dataset(total_batch_size, num_gpus,
                     total_batch_size, num_gpus, max_epochs,
                     data_dir, split)
             elif dataset == 'fashion_mnist': # TODO
-                raise NotImplementedError('fashsion_mnist not implemented yet.')
+                distributed_dataset, specs = fashion_mnist_input.inputs(
+                    total_batch_size, num_gpus, max_epochs,
+                    data_dir, split)
             elif dataset == 'cifar10': # TODO
                 raise NotImplementedError('cifar10 not implemented yet.')
             # the data will be distributed over {num_gpus} GPUs.
