@@ -105,7 +105,7 @@ def inputs(total_batch_size, num_gpus, max_epochs,
     }
 
     """Load data from downloaded byte file"""
-    images, labels = load_fashion_mnist(data_dir, split)
+    images, labels = load_fashion_mnist.load_fashion_mnist(data_dir, split)
     # image: 0 ~ 255 uint8
     # label: 0 ~ 9 uint8
     assert images.shape[0] == labels.shape[0]

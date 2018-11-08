@@ -81,7 +81,7 @@ def _dream_sample_pairs(split, data_dir, max_epochs, n_repeats,
     }
     
     """Load data from byte files"""
-    images, labels = load_fashion_mnist(data_dir, split)
+    images, labels = load_fashion_mnist.load_fashion_mnist(data_dir, split)
     assert images.shape[0] == labels.shape[0]
     specs['total_size'] = int(images.shape[0])
 
@@ -92,6 +92,7 @@ def _dream_sample_pairs(split, data_dir, max_epochs, n_repeats,
     # classes: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
     indices = [specs['total_size'] // specs['num_classes'] * i 
                for i in range(specs['num_classes'])]
+    indices.append(specs['total_size'])
     perm = labels.argsort()
     images = images[perm]
     labels = labels[perm]

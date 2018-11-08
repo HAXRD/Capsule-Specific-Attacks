@@ -31,7 +31,7 @@ import numpy as np
 import tensorflow as tf 
 
 from input_data.mnist import mnist_input, mnist_dream_inputs
-from input_data.fashion_mnist import fashion_mnist_input
+from input_data.fashion_mnist import fashion_mnist_input, fashion_mnist_dream_input
 from input_data.cifar10 import cifar10_input
 from input_data.noise import noise_input_
 from models import cnn_model
@@ -148,8 +148,9 @@ def get_distributed_dataset(total_batch_size, num_gpus,
             if dataset == 'mnist':
                 batched_dataset, specs = mnist_dream_inputs.inputs(
                     'train', data_dir, max_epochs, n_repeats)
-            elif dataset == 'fashion_mnist': # TODO
-                raise NotImplementedError('')
+            elif dataset == 'fashion_mnist': 
+                batched_dataset, specs = fashion_mnist_dream_input.inputs(
+                    'train', data_dir, max_epochs, n_repeats)
             elif dataset == 'cifar10': # TODO
                 raise NotImplementedError('')
             # the data will only have batch_size=1 and not be distributed over {num_gpus} GPUs.
