@@ -17,7 +17,7 @@ import tensorflow as tf
 import numpy as np 
 import os 
 import random
-import gzip
+from input_data.fashion_mnist.fashion_mnist_dream_input import load_fashion_mnist
 
 def _single_process(image, label, specs):
     """Map function to process single instance of dataset object.
@@ -69,35 +69,6 @@ def _feature_process(feature):
         'labels': feature['label'],
     }
     return batched_feature
-
-def load_fashion_mnist(path, split='train'):
-    """Load fashion-mnist dataset from byte files.
-
-    Args:
-        path: given directory of where the dataset was stored
-        split: 'train' or 'test'.
-    Return:
-        images: numpy array storing image data, uint8 0 ~ 255, (60000 or 10000, 28, 28)
-        labels: numpy array storing label data, uint8 0 ~ 9, (60000 or 10000,)
-    """
-    if split == 'test':
-        split = 't10k'
-    labels_path = os.path.join(
-        path, '%s-labels-idx1-ubyte.gz' % split)
-    images_path = os.path.join(
-        path, '%s-images-idx3-ubyte.gz' % split)
-
-    # read label data    
-    with gzip.open(labels_path, 'rb') as lbpath:
-        labels = np.frombuffer(
-            lbpath.read(), dtype=np.uint8, offset=8)
-    # read image data
-    with gzip.open(images_path, 'rb') as imgpath:
-        images = np.frombuffer(
-            imgpath.read(), dtype=np.uint8, offset=16).reshape(len(labels), 28, 28)
-
-    return images, labels 
-
 
 def inputs(total_batch_size, num_gpus, max_epochs,
            data_dir, split, distort=True):
