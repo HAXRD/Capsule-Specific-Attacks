@@ -29,7 +29,7 @@ def _dream_cropping(image, label):
     # convert from 0 ~ 255 to 0. ~ 1.
     image = tf.cast(image, tf.float32) * (1. / 255.)
     # transpose image into (CHW)
-    image = tf.transpose(image, [2, 0, 1]) # (HWC)
+    image = tf.transpose(image, [2, 0, 1]) # (CHW)
 
     feature = {
         'image': image,
