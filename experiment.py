@@ -32,6 +32,7 @@ import tensorflow as tf
 
 from input_data.mnist import mnist_input, mnist_dream_inputs
 from input_data.fashion_mnist import fashion_mnist_input, fashion_mnist_dream_input
+from input_data.svhn import svhn_input, svhn_dream_input
 from input_data.cifar10 import cifar10_input
 from input_data.noise import noise_input_
 from models import cnn_model
@@ -50,7 +51,7 @@ tf.flags.DEFINE_string('data_dir', None,
                        'The data directory.')
 tf.flags.DEFINE_string('dataset', 'mnist',
                        'The dataset to use for the experiment.\n'
-                       'mnist, fashion_mnist, cifar10.')
+                       'mnist, fashion_mnist, svhn, cifar10.')
 tf.flags.DEFINE_string('model', 'cap',
                        'The model to use for the experiment.\n'
                        'cap or cnn')
@@ -126,8 +127,12 @@ def get_distributed_dataset(total_batch_size, num_gpus,
                 distributed_dataset, specs = mnist_input.inputs(
                     total_batch_size, num_gpus, max_epochs,
                     data_dir, split)
-            elif dataset == 'fashion_mnist': # TODO
+            elif dataset == 'fashion_mnist': 
                 distributed_dataset, specs = fashion_mnist_input.inputs(
+                    total_batch_size, num_gpus, max_epochs,
+                    data_dir, split)
+            elif dataset == 'svhn': 
+                distributed_dataset, specs = svhn_input.inputs(
                     total_batch_size, num_gpus, max_epochs,
                     data_dir, split)
             elif dataset == 'cifar10': # TODO
@@ -150,6 +155,9 @@ def get_distributed_dataset(total_batch_size, num_gpus,
                     'train', data_dir, max_epochs, n_repeats)
             elif dataset == 'fashion_mnist': 
                 batched_dataset, specs = fashion_mnist_dream_input.inputs(
+                    'train', data_dir, max_epochs, n_repeats)
+            elif dataset == '':
+                batched_dataset, specs = svhn_dream_input.inputs(
                     'train', data_dir, max_epochs, n_repeats)
             elif dataset == 'cifar10': # TODO
                 raise NotImplementedError('')
