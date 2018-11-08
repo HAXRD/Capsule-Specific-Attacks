@@ -148,8 +148,8 @@ def inputs(split, data_dir, max_epochs, n_repeats,
     dataset = dataset.prefetch(1)
     dataset = dataset.map(_dream_cropping, num_parallel_calls=3)
     batched_dataset = dataset.batch(specs['batch_size'])
-    batched_dataset = dataset.map(_dream_process, num_parallel_calls=3)
-    batched_dataset = dataset.prefetch(1)
+    batched_dataset = batched_dataset.map(_dream_process, num_parallel_calls=3)
+    batched_dataset = batched_dataset.prefetch(1)
 
     specs['image_size'] = 24
 
