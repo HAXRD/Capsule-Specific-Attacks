@@ -42,9 +42,6 @@ def _single_process(image, label, specs):
             # central cropping 
             image = tf.image.resize_image_with_crop_or_pad(
                 image, cropped_size, cropped_size)
-    else:
-        # expand image dimensions into (HWC)
-        image = tf.expand_dims(image, -1) # (HWC)
     # convert from 0 ~ 255 to 0. ~ 1.
     image = tf.cast(image, tf.float32) * (1. / 255.)
     # transpose image into (CHW)
