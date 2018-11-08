@@ -36,7 +36,6 @@ from input_data.cifar10 import cifar10_input
 from input_data.noise import noise_input_
 from models import cnn_model
 from models import capsule_model
-from dream import layer_visual
 from grad import naive_max_norm, max_norm_diff, naive_max_caps_dim, utils
 
 FLAGS = tf.flags.FLAGS

@@ -97,17 +97,17 @@ def write_results(write_dir, t_grad, gsum, img0, img1, lbl0, lbl1, ep_i):
     assert img0.shape == img1.shape
 
     # shorten the filename
-    print(t_grad.name)
+    # print(t_grad.name)
     # naive_max_norm gradients/tower_0/logits/split_op_0/tower_0/conv1/Conv2D_grad/Conv2DBackpropInput:0
     # max_norm_diff gradients/tower_0/logits/split_op_0_diff/tower_0/conv1/Conv2D_grad/Conv2DBackpropInput:0
     def _shorten_filename(given_grad_t):
         fn_splitted_list = re.split('/|:', given_grad_t.name)
-        print(fn_splitted_list)
+        # print(fn_splitted_list)
         second_tower_idx = [i for i, part in enumerate(fn_splitted_list) if 'tower' in part][1]
         img_fn = '-'.join(fn_splitted_list[:second_tower_idx])
         return img_fn
     img_fn = _shorten_filename(t_grad) 
-    print(img_fn)
+    # print(img_fn)
     # naive_max_norm gradients-tower_0-logits-split_op_0
     # max_norm_diff  gradients-tower_0-logits-split_op_0_diff
 
@@ -127,11 +127,13 @@ def write_results(write_dir, t_grad, gsum, img0, img1, lbl0, lbl1, ep_i):
                   'instance_' + vis_info.epoch_idx + '-' + \
                   'lbl0_' + vis_info.lbl0_class + '-' + \
                   'lbl1_' + vis_info.lbl1_class 
-        title_desc = 'Given input array type: {}\n'.format(array_type) + \
-                     'Label of the target class suppose to maximize: label {}\n'.format(vis_info.target_class) + \
-                     'Instance index of sampled digit: {}th digit\n'.format(vis_info.epoch_idx) + \
-                     'Original image predicted label before processing: label {}\n'.format(vis_info.lbl0_class) + \
-                     'Processed image predicted label: label {}\n'.format(vis_info.lbl1_class)
+        # title_desc = 'Given input array type: {}\n'.format(array_type) + \
+        #              'Label of the target class suppose to maximize: label {}\n'.format(vis_info.target_class) + \
+        #              'Instance index of sampled digit: {}th digit\n'.format(vis_info.epoch_idx) + \
+        #              'Original image predicted label before processing: label {}\n'.format(vis_info.lbl0_class) + \
+        #              'Processed image predicted label: label {}\n'.format(vis_info.lbl1_class)
+        title_desc = 'Type = {}; Target Class = {}; Instance Index = {};\n'.format(array_type, vis_info.target_class, vis_info.epoch_idx) + \
+                     'Original Prediction = {}; Processed Prediction = {};'.format(vis_info.lbl0_class, vis_info.lbl1_class)
 
         """Plot 3D surface"""
         assert arr.shape[0] == arr.shape[1]
@@ -145,22 +147,22 @@ def write_results(write_dir, t_grad, gsum, img0, img1, lbl0, lbl1, ep_i):
         fig.suptitle(title_desc)
         
         ax = fig.add_subplot(2, 2, 1, projection='3d')
-        ax.set_title('General')
+        # ax.set_title('General')
         ax.contour3D(X, Y, Z, 100, cmap='viridis', alpha=0.5)
         ax.view_init(60, 45)
 
         ax = fig.add_subplot(2, 2, 2, projection='3d')
-        ax.set_title('Top')
+        # ax.set_title('Top')
         ax.contour3D(X, Y, Z, 100, cmap='viridis', alpha=0.5)
         ax.view_init(90, 0)
 
         ax = fig.add_subplot(2, 2, 3, projection='3d')
-        ax.set_title('Front')
+        # ax.set_title('Front')
         ax.contour3D(X, Y, Z, 100, cmap='viridis', alpha=0.5)
         ax.view_init(-20, 0)
 
         ax = fig.add_subplot(2, 2, 4, projection='3d')
-        ax.set_title('Side')
+        # ax.set_title('Side')
         ax.contour3D(X, Y, Z, 100, cmap='viridis', alpha=0.5)
         ax.view_init(-20, 90)
 
@@ -197,12 +199,12 @@ def write_results(write_dir, t_grad, gsum, img0, img1, lbl0, lbl1, ep_i):
         img.save(fpath, format=fmt)
         # print('Image saved to ', fpath)
     # 1. write original image (no adding base)
-    _write_to_dir(img0, 'img', visual_info, 1, 0.0, write_dir)
+    # _write_to_dir(img0, 'img', visual_info, 1, 0.0, write_dir)
     # 2. write original image (add the base of 0.5)
-    _write_to_dir(img0, 'img', visual_info, 1, 0.5, write_dir)
+    # _write_to_dir(img0, 'img', visual_info, 1, 0.5, write_dir)
     # 3. write original processed image (add the base of 0.5)
     # _write_to_dir(img1, img_fn + '-img1' + ep_suffix + lbl0_suffix + lbl1_suffix + '-base-' + str(0.5), 1, 0.5, write_dir)
-    _write_to_dir(img1, 'img', visual_info, 1, 0.5, write_dir)
+    # _write_to_dir(img1, 'img', visual_info, 1, 0.5, write_dir)
     # 4. write scaled processed image (add the base of 0.5)
     _write_to_dir(img1, 'img', visual_info, 3, 0.5, write_dir)
     # 5. write scaled accumulated gradients (add the base of 0.5)

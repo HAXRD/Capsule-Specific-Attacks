@@ -17,7 +17,7 @@ import tensorflow as tf
 import numpy as np 
 import os 
 import random
-from input_data.fashion_mnist.fashion_mnist_dream_input import load_fashion_mnist
+from input_data.fashion_mnist import load_fashion_mnist
 
 def _single_process(image, label, specs):
     """Map function to process single instance of dataset object.

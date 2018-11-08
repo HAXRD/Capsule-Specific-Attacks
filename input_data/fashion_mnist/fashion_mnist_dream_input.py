@@ -16,7 +16,7 @@
 import tensorflow as tf 
 import numpy as np 
 import os 
-from input_data.fashion_mnist.fashion_mnist_dream_input import load_fashion_mnist
+from input_data.fashion_mnist import load_fashion_mnist
 
 def _dream_cropping(image, label):
 
