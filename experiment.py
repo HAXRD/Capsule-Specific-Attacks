@@ -30,7 +30,7 @@ import tensorflow as tf
 from input_data.mnist import mnist_input, mnist_dream_inputs
 from input_data.fashion_mnist import fashion_mnist_input, fashion_mnist_dream_input
 from input_data.svhn import svhn_input, svhn_dream_input
-from input_data.cifar10 import cifar10_input
+from input_data.cifar10 import cifar10_input, cifar10_dream_input
 from input_data.noise import noise_input_
 from models import cnn_model
 from models import capsule_model
@@ -132,7 +132,9 @@ def get_distributed_dataset(total_batch_size, num_gpus,
                     total_batch_size, num_gpus, max_epochs,
                     data_dir, split)
             elif dataset == 'cifar10': # TODO
-                raise NotImplementedError('cifar10 not implemented yet.')
+                distributed_dataset, specs = cifar10_input.inputs(
+                    total_batch_size, num_gpus, max_epochs,
+                    data_dir, split)
             # the data will be distributed over {num_gpus} GPUs.
             return distributed_dataset, specs
         elif split == 'noise':
@@ -155,8 +157,9 @@ def get_distributed_dataset(total_batch_size, num_gpus,
             elif dataset == 'svhn':
                 batched_dataset, specs = svhn_dream_input.inputs(
                     'train', data_dir, max_epochs, n_repeats)
-            elif dataset == 'cifar10': # TODO
-                raise NotImplementedError('')
+            elif dataset == 'cifar10': 
+                batched_dataset, specs = cifar10_dream_input.inputs(
+                    'train', data_dir, max_epochs, n_repeats)
             # the data will only have batch_size=1 and not be distributed over {num_gpus} GPUs.
             return batched_dataset, specs
         else:
