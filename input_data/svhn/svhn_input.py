@@ -22,11 +22,11 @@ def _single_process(image, label, specs):
     """Map function to process single instance of dataset object.
     
     Args: 
-        image: numpy array image object, (28, 28), 0 ~ 255 uint8
+        image: numpy array image object, (28, 28, 3), 0 ~ 255 uint8
         label: numpy array label, (,)
         specs: dataset specifications
     Returns:
-        feature: a dictionary contains image, label, recons_image, recons_label.
+        feature: a dictionary contains an image, and an label.
     """
     if specs['distort']:
         cropped_size = 24

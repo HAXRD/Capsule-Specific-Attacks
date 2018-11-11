@@ -24,9 +24,6 @@ import os
 import sys
 import time
 import re
-from io import BytesIO
-import PIL.Image
-
 import numpy as np 
 import tensorflow as tf 
 
@@ -61,8 +58,8 @@ tf.flags.DEFINE_string('summary_dir', './summary',
                        'Main directory for the experiments.')
 tf.flags.DEFINE_integer('max_to_keep', None, 
                         'Maximum number of checkpoint files to keep.')
-tf.flags.DEFINE_integer('save_epochs', 5, 'How often to save checkpoints.')
-tf.flags.DEFINE_integer('max_epochs', 20, 
+tf.flags.DEFINE_integer('save_epochs', 10, 'How often to save checkpoints.')
+tf.flags.DEFINE_integer('max_epochs', 1, 
                         'Number of epochs to train, test, naive, multiscale or dream.\n'
                         'train ~ 1000 (20 when debugging);\n'
                         'test = 1;\n'
@@ -99,7 +96,6 @@ def get_distributed_dataset(total_batch_size, num_gpus,
         those `total_batch_size` into `num_gpus` partitions,
         denoted as `batch_size`, otherwise raise error.
     
-    TODO: do it when reach visualization part
     For 'noise' and 'dream' splits,
         check if `total_batch_size` ≡ 1, otherwise raise 'ValueError'.
         In this case, we will duplicate every example `num_gpus` times
@@ -156,7 +152,7 @@ def get_distributed_dataset(total_batch_size, num_gpus,
             elif dataset == 'fashion_mnist': 
                 batched_dataset, specs = fashion_mnist_dream_input.inputs(
                     'train', data_dir, max_epochs, n_repeats)
-            elif dataset == '':
+            elif dataset == 'svhn':
                 batched_dataset, specs = svhn_dream_input.inputs(
                     'train', data_dir, max_epochs, n_repeats)
             elif dataset == 'cifar10': # TODO
