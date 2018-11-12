@@ -52,10 +52,12 @@ def load_cifar10(data_dir, split='train'):
     labels_list = []
     for fn in filenames:
         mat = loadmat(fn)
-        images_list.append(np.reshape(mat['data'], [-1, 32, 32, 3]))
-        labels_list.append(np.reshape(mat['labels'], -1))
+        images = np.transpose(np.reshape(mat['data'], [-1, 3, 32, 32]), [0, 2, 3, 1])
+        labels = np.reshape(mat['labels'], -1)
+        images_list.append(images)
+        labels_list.append(labels)
     
-    images = np.concatenate(images_list, axis=-1)
-    labels = np.concatenate(labels_list, axis=-1)
+    images = np.concatenate(images_list, axis=0)
+    labels = np.concatenate(labels_list, axis=0)
 
     return images, labels

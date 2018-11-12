@@ -38,12 +38,12 @@ def _single_process(image, label, specs):
             # random cropping 
             image = tf.random_crop(image, [cropped_size, cropped_size, 3])
             # random flipping
-            image = tf.image.random_flip_left_right(image)
+            # image = tf.image.random_flip_left_right(image)
         elif specs['split'] == 'test':
             # central cropping
             image = tf.image.resize_image_with_crop_or_pad(image, specs['image_size'], specs['image_size'])
     # convert from 0 ~ 255 to 0. ~ 1.
-    image = tf.ccast(image, tf.float32) * (1. / 255.)
+    image = tf.cast(image, tf.float32) * (1. / 255.)
     # transpose image into (CHW)
     image = tf.transpose(image, [2, 0, 1])
 
