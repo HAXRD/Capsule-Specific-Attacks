@@ -195,10 +195,10 @@ def find_latest_checkpoint_info(load_dir, find_all=False):
         latest_step = extract_step(ckpt.model_checkpoint_path)
         if find_all == True:
             ckpt_paths = glob.glob(os.path.join(load_dir, 'model.ckpt-*.index'))
-            ckpt_paths = sorted(ckpt_paths)
             pairs = [(re.search('\d+', os.path.basename(path)).group(0), 
                       os.path.join(os.path.dirname(path), os.path.basename(path)[:-6]))
                       for path in ckpt_paths]
+            pairs = sorted(pairs, key=lambda pair: pair[0])
         else:
             pairs = []
         return latest_step, ckpt.model_checkpoint_path, pairs
@@ -256,7 +256,7 @@ def run_visual_session(num_gpus, total_batch_size, max_epochs, data_dir, dataset
                                   max_epochs, iter_n, step, threshold)
 
     # Find latest checkpoint information
-    latest_step, latest_ckpt_path, all_step_ckpt_pairs = find_latest_checkpoint_info(load_dir)
+    latest_step, latest_ckpt_path, _ = find_latest_checkpoint_info(load_dir)
     if latest_step == -1 or latest_ckpt_path == None:
         raise ValueError('Checkpoint files not found!')
     else:
@@ -354,7 +354,7 @@ def run_evaluate_session(iterator, specs, load_dir, summary_dir, kind):
     """
     if not os.path.exists(summary_dir):
         os.makedirs(summary_dir)
-        
+
     # section to write test_history
     """Load available checkpoints"""
     latest_step, latest_ckpt_path, all_step_ckpt_pairs = find_latest_checkpoint_info(load_dir, True)
@@ -364,17 +364,17 @@ def run_evaluate_session(iterator, specs, load_dir, summary_dir, kind):
         print('Found ckpt at step {}'.format(latest_step))
         latest_ckpt_meta_path = latest_ckpt_path + '.meta'
     
-    with open(os.path.join(summary_dir, '%s_history.txt' % kind)) as f:
+    with open(os.path.join(summary_dir, '%s_history.txt' % kind), 'w') as f:
         with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
             # Import compute grah
             saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
+            batch_data = iterator.get_next()
 
             # Iteratively restore variables
             for step, ckptpath in all_step_ckpt_pairs:
                 # Restore variables 
                 saver.restore(sess, ckptpath)
                 
-                batch_data = iterator.get_next()
                 sess.run(iterator.initializer)
                 accs = []
 
@@ -447,7 +447,7 @@ def run_test_session(iterator, specs, load_dir):
     """
 
     """Load latest checkpoint"""
-    latest_step, latest_ckpt_path, all_step_ckpt_pairs = find_latest_checkpoint_info(load_dir, True)
+    latest_step, latest_ckpt_path, _ = find_latest_checkpoint_info(load_dir)
     if latest_step == -1 or latest_ckpt_path == None:
         raise ValueError('Checkpoint files not found!')
     else:
