@@ -195,7 +195,7 @@ def find_latest_checkpoint_info(load_dir, find_all=False):
         latest_step = extract_step(ckpt.model_checkpoint_path)
         if find_all == True:
             ckpt_paths = glob.glob(os.path.join(load_dir, 'model.ckpt-*.index'))
-            pairs = [(re.search('\d+', os.path.basename(path)).group(0), 
+            pairs = [(int(re.search('\d+', os.path.basename(path)).group(0)), 
                       os.path.join(os.path.dirname(path), os.path.basename(path)[:-6]))
                       for path in ckpt_paths]
             pairs = sorted(pairs, key=lambda pair: pair[0])
