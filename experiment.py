@@ -24,6 +24,7 @@ import os
 import sys
 import time
 import re
+import glob
 import numpy as np 
 import tensorflow as tf 
 
@@ -72,18 +73,7 @@ tf.flags.DEFINE_string('step', '1.0',
                        'Size of step for each iteration')
 tf.flags.DEFINE_string('threshold', '0.0',
                        'Those gradients after divided by the its standard deviations that larger than the threshold will be added')
-models = {
-    'cnn': cnn_model.CNNModel,
-    'cap': capsule_model.CapsuleModel
-}
 
-vis_grad_computer = {
-    'naive_max_norm': naive_max_norm, 
-    'max_norm_diff': max_norm_diff, 
-    'naive_max_caps_dim': naive_max_caps_dim
-}
-
-VIS_TYPES = ['naive_max_norm', 'max_norm_diff', 'naive_max_caps_dim']
 
 def get_distributed_dataset(total_batch_size, num_gpus, 
                             max_epochs, data_dir, dataset, 
@@ -165,7 +155,7 @@ def get_distributed_dataset(total_batch_size, num_gpus,
         else:
             raise ValueError('')
 
-def find_latest_checkpoint_info(load_dir):
+def find_latest_checkpoint_info(load_dir, find_all=False):
     """Finds the latest checkpoint information.
 
     Args:
@@ -176,7 +166,15 @@ def find_latest_checkpoint_info(load_dir):
     ckpt = tf.train.get_checkpoint_state(load_dir)
     if ckpt and ckpt.model_checkpoint_path:
         latest_step = extract_step(ckpt.model_checkpoint_path)
-        return latest_step, ckpt.model_checkpoint_path
+        if find_all == True:
+            ckpt_paths = glob.glob('model.ckpt-*.index')
+            ckpt_paths = sorted(ckpt_paths)
+            pairs = [(re.search('\d+', os.path.basename(path)), 
+                      os.path.join(os.path.dirname(path), os.path.basename(path)[:-6]))
+                      for path in ckpt_paths]
+        else:
+            pairs = []
+        return latest_step, ckpt.model_checkpoint_path, pairs
     return -1, None
 
 def extract_step(path):
@@ -231,7 +229,7 @@ def run_visual_session(num_gpus, total_batch_size, max_epochs, data_dir, dataset
                                   max_epochs, iter_n, step, threshold)
 
     # Find latest checkpoint information
-    latest_step, latest_ckpt_path = find_latest_checkpoint_info(load_dir)
+    latest_step, latest_ckpt_path, all_step_ckpt_pairs = find_latest_checkpoint_info(load_dir)
     if latest_step == -1 or latest_ckpt_path == None:
         raise ValueError('Checkpoint files not found!')
     else:
@@ -315,6 +313,45 @@ def visual(num_gpus, data_dir, dataset,
                            iter_n, step, threshold,
                            load_dir, summary_dir, vis_or_dream_type)
 
+def run_evaluate_session(iterator, specs, load_dir):
+    """Find available checkpoints and iteratively load the graph and variables.
+
+    Args:
+        iterator: iterator, dataset iterator.
+        specs: dict, dictionary containing dataset specifications.
+        load_dir: str, directory that contains checkpoints.
+    Raises:
+        ckpt files not found.
+    """
+    
+    """Load available checkpoints"""
+    pass    
+
+def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size,
+             summary_dir, max_epochs):
+    """Iteratively restore the graph and variables, and return the data to 
+    train and test curve.
+
+    Args:
+        num_gpus: number of GPUs available to use.
+        data_dir: the directory containing the input data.
+        dataset: the name of the dataset for the experiments.
+        model_type: the name of the model architecture.
+        total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
+        summary_dir: the directory to load the model.
+        max_epochs: maximum epochs to evaluate, ≡ 1.
+    """
+    load_dir = summary_dir + '/train/'
+
+    # Declare the empty model graph
+    with tf.Graph().as_default():
+        # Get batched dataset and declare initializable iterator
+        distributed_dataset, specs = get_distributed_dataset(
+            total_batch_size, num_gpus, max_epochs, data_dir, dataset, 'test')
+        iterator = distributed_dataset.make_initializable_iterator()
+        # Call evaluate experiment 
+        
+
 def run_test_session(iterator, specs, load_dir):
     """Find latest checkpoint and load the graph and variables.
 
@@ -327,7 +364,7 @@ def run_test_session(iterator, specs, load_dir):
     """
 
     """Load latest checkpoint"""
-    latest_step, latest_ckpt_path = find_latest_checkpoint_info(load_dir)
+    latest_step, latest_ckpt_path, all_step_ckpt_pairs = find_latest_checkpoint_info(load_dir)
     if latest_step == -1 or latest_ckpt_path == None:
         raise ValueError('Checkpoint files not found!')
     else:
