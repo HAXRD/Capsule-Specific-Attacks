@@ -182,7 +182,7 @@ def find_latest_checkpoint_info(load_dir, find_all=False):
         if find_all == True:
             ckpt_paths = glob.glob(os.path.join(load_dir, 'model.ckpt-*.index'))
             ckpt_paths = sorted(ckpt_paths)
-            pairs = [(re.search('\d+', os.path.basename(path)), 
+            pairs = [(re.search('\d+', os.path.basename(path)).group(0), 
                       os.path.join(os.path.dirname(path), os.path.basename(path)[:-6]))
                       for path in ckpt_paths]
         else:
@@ -379,7 +379,7 @@ def run_evaluate_session(iterator, specs, load_dir):
                 except tf.errors.OutOfRangeError:
                     break
             mean_acc = np.mean(accs)
-            print('step: {0}, accuracy: {1:.4f}'.format(mean_acc))
+            print('step: {0}, accuracy: {1:.4f}'.format(step, mean_acc))
 
 def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size,
              summary_dir, max_epochs):
@@ -645,6 +645,9 @@ def main(_):
     elif FLAGS.mode == 'test':
         test(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size,
              FLAGS.summary_dir, FLAGS.max_epochs)
+    elif FLAGS.mode == 'evaluate':
+        evaluate(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size,
+                 FLAGS.summary_dir, FLAGS.max_epochs)
     elif FLAGS.mode in VIS_TYPES:
         visual(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, 
                FLAGS.total_batch_size, FLAGS.summary_dir, FLAGS.max_epochs, 
