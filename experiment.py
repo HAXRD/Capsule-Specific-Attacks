@@ -74,6 +74,19 @@ tf.flags.DEFINE_string('step', '1.0',
 tf.flags.DEFINE_string('threshold', '0.0',
                        'Those gradients after divided by the its standard deviations that larger than the threshold will be added')
 
+models = {
+    'cnn': cnn_model.CNNModel,
+    'cap': capsule_model.CapsuleModel
+}
+
+vis_grad_computer = {
+    'naive_max_norm': naive_max_norm, 
+    'max_norm_diff': max_norm_diff, 
+    'naive_max_caps_dim': naive_max_caps_dim
+}
+
+VIS_TYPES = ['naive_max_norm', 'max_norm_diff', 'naive_max_caps_dim']
+
 
 def get_distributed_dataset(total_batch_size, num_gpus, 
                             max_epochs, data_dir, dataset, 
@@ -167,7 +180,7 @@ def find_latest_checkpoint_info(load_dir, find_all=False):
     if ckpt and ckpt.model_checkpoint_path:
         latest_step = extract_step(ckpt.model_checkpoint_path)
         if find_all == True:
-            ckpt_paths = glob.glob('model.ckpt-*.index')
+            ckpt_paths = glob.glob(os.path.join(load_dir, 'model.ckpt-*.index'))
             ckpt_paths = sorted(ckpt_paths)
             pairs = [(re.search('\d+', os.path.basename(path)), 
                       os.path.join(os.path.dirname(path), os.path.basename(path)[:-6]))
@@ -364,7 +377,7 @@ def run_test_session(iterator, specs, load_dir):
     """
 
     """Load latest checkpoint"""
-    latest_step, latest_ckpt_path, all_step_ckpt_pairs = find_latest_checkpoint_info(load_dir)
+    latest_step, latest_ckpt_path, all_step_ckpt_pairs = find_latest_checkpoint_info(load_dir, True)
     if latest_step == -1 or latest_ckpt_path == None:
         raise ValueError('Checkpoint files not found!')
     else:
