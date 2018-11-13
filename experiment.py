@@ -340,7 +340,7 @@ def visual(num_gpus, data_dir, dataset,
                            iter_n, step, threshold,
                            load_dir, summary_dir, vis_or_dream_type)
 
-def run_evaluate_session(iterator, specs, load_dir, summary_dir):
+def run_evaluate_session(iterator, specs, load_dir, summary_dir, kind):
     """Find available checkpoints and iteratively load the graph and variables.
 
     Args:
@@ -348,16 +348,13 @@ def run_evaluate_session(iterator, specs, load_dir, summary_dir):
         specs: dict, dictionary containing dataset specifications.
         load_dir: str, directory that contains checkpoints.
         summary_dir: str, directory to write summary
+        kind: 'train' or 'test'
     Raises:
         ckpt files not found.
     """
-    # section to write train_history
-    event_fpath = find_event_file_path(load_dir)
-    with open(os.path.join(summary_dir, 'train_history.txt')) as f:
-        for e in tf.train.summary_iterator(event_fpath):
-            for v in e.summary.value:
-                print(v.tag)
-
+    if not os.path.exists(summary_dir):
+        os.makedirs(summary_dir)
+        
     # section to write test_history
     """Load available checkpoints"""
     latest_step, latest_ckpt_path, all_step_ckpt_pairs = find_latest_checkpoint_info(load_dir, True)
@@ -367,7 +364,7 @@ def run_evaluate_session(iterator, specs, load_dir, summary_dir):
         print('Found ckpt at step {}'.format(latest_step))
         latest_ckpt_meta_path = latest_ckpt_path + '.meta'
     
-    with open(os.path.join(summary_dir, 'test_history.txt')) as f:
+    with open(os.path.join(summary_dir, '%s_history.txt' % kind)) as f:
         with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
             # Import compute grah
             saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
@@ -420,15 +417,23 @@ def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size,
         max_epochs: maximum epochs to evaluate, ≡ 1.
     """
     load_dir = summary_dir + '/train/'
-    summary_dir += '/evaluate/'
+    summary_dir = os.path.join(summary_dir, 'evaluate')
     # Declare the empty model graph
     with tf.Graph().as_default():
-        # Get batched dataset and declare initializable iterator
-        distributed_dataset, specs = get_distributed_dataset(
-            total_batch_size, num_gpus, max_epochs, data_dir, dataset, 'test')
-        iterator = distributed_dataset.make_initializable_iterator()
+        # Get train batched dataset and declare initializable iterator
+        train_distributed_dataset, train_specs = get_distributed_dataset(
+            total_batch_size, num_gpus, max_epochs, data_dir, dataset, 'train')
+        train_iterator = train_distributed_dataset.make_initializable_iterator()
         # Call evaluate experiment 
-        run_evaluate_session(iterator, specs, load_dir, summary_dir)
+        run_evaluate_session(train_iterator, train_specs, load_dir, summary_dir, 'train')
+    with tf.Graph().as_default():
+        # Get batched dataset and declare initializable iterator
+        test_distributed_dataset, test_specs = get_distributed_dataset(
+            total_batch_size, num_gpus, max_epochs, data_dir, dataset, 'test')
+        test_iterator = test_distributed_dataset.make_initializable_iterator()
+        # Call evaluate experiment
+        run_evaluate_session(test_iterator, test_specs, load_dir, summary_dir, 'test')
+        
 
 def run_test_session(iterator, specs, load_dir):
     """Find latest checkpoint and load the graph and variables.
