@@ -32,16 +32,11 @@ def _single_process(image, label, specs):
     image = tf.expand_dims(image, -1) # (HWC)
     if specs['distort']:
         cropped_size = 24
+        # resize image
+        image = tf.image.resize_images(image, [cropped_size, cropped_size])
         if specs['split'] == 'train':
-            if bool(random.getrandbits(1)) == True:
-                # random flipping
-                image = tf.image.flip_left_right(image) 
-            # random cropping
-            image = tf.random_crop(image, [cropped_size, cropped_size, 1])
-        elif specs['split'] == 'test':
-            # central cropping 
-            image = tf.image.resize_image_with_crop_or_pad(
-                image, cropped_size, cropped_size)
+            # random flipping
+            image = tf.image.random_flip_left_right(image)
     # convert from 0 ~ 255 to 0. ~ 1.
     image = tf.cast(image, tf.float32) * (1. / 255.)
     # transpose image into (CHW)
