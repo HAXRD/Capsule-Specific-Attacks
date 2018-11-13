@@ -168,13 +168,27 @@ def get_distributed_dataset(total_batch_size, num_gpus,
         else:
             raise ValueError('')
 
+def find_event_file_path(load_dir):
+    """Finds the event file.
+
+    Args:
+        load_dir: the directory to look for the training checkpoints.
+    Returns:
+        path to the event file.
+    """
+    fpath_list = glob.glob(os.path.join(load_dir, 'events.*'))
+    if len(fpath_list) == 1:
+        return fpath_list[0]
+    else:
+        raise ValueError
+
 def find_latest_checkpoint_info(load_dir, find_all=False):
     """Finds the latest checkpoint information.
 
     Args:
         load_dir: the directory to look for the training checkpoints.
     Returns:
-        latest global step, latest checkpoint path, 
+        latest global step, latest checkpoint path, step_ckpt pair list
     """
     ckpt = tf.train.get_checkpoint_state(load_dir)
     if ckpt and ckpt.model_checkpoint_path:
@@ -188,7 +202,7 @@ def find_latest_checkpoint_info(load_dir, find_all=False):
         else:
             pairs = []
         return latest_step, ckpt.model_checkpoint_path, pairs
-    return -1, None
+    return -1, None, []
 
 def extract_step(path):
     """Returns the step from the file format name of Tensorflow checkpoints.
@@ -326,17 +340,25 @@ def visual(num_gpus, data_dir, dataset,
                            iter_n, step, threshold,
                            load_dir, summary_dir, vis_or_dream_type)
 
-def run_evaluate_session(iterator, specs, load_dir):
+def run_evaluate_session(iterator, specs, load_dir, summary_dir):
     """Find available checkpoints and iteratively load the graph and variables.
 
     Args:
         iterator: iterator, dataset iterator.
         specs: dict, dictionary containing dataset specifications.
         load_dir: str, directory that contains checkpoints.
+        summary_dir: str, directory to write summary
     Raises:
         ckpt files not found.
     """
-    
+    # section to write train_history
+    event_fpath = find_event_file_path(load_dir)
+    with open(os.path.join(summary_dir, 'train_history.txt')) as f:
+        for e in tf.train.summary_iterator(event_fpath):
+            for v in e.summary.value:
+                print(v.tag)
+
+    # section to write test_history
     """Load available checkpoints"""
     latest_step, latest_ckpt_path, all_step_ckpt_pairs = find_latest_checkpoint_info(load_dir, True)
     if latest_step == -1 or latest_ckpt_path == None:
@@ -345,41 +367,43 @@ def run_evaluate_session(iterator, specs, load_dir):
         print('Found ckpt at step {}'.format(latest_step))
         latest_ckpt_meta_path = latest_ckpt_path + '.meta'
     
+    with open(os.path.join(summary_dir, 'test_history.txt')) as f:
+        with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+            # Import compute grah
+            saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
 
-    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-        # Import compute grah
-        saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
+            # Iteratively restore variables
+            for step, ckptpath in all_step_ckpt_pairs:
+                # Restore variables 
+                saver.restore(sess, ckptpath)
+                
+                batch_data = iterator.get_next()
+                sess.run(iterator.initializer)
+                accs = []
 
-        # Iteratively restore variables
-        for step, ckptpath in all_step_ckpt_pairs:
-            # Restore variables 
-            saver.restore(sess, ckptpath)
-            
-            batch_data = iterator.get_next()
-            sess.run(iterator.initializer)
-            accs = []
+                while True:
+                    try: 
+                        # Get placeholders and create feed dict
+                        feed_dict = {}
+                        for i in range(specs['num_gpus']):
+                            batch_val = sess.run(batch_data)
+                            feed_dict[tf.get_collection('tower_%d_batched_images' % i)[0]] = batch_val['images']
+                            feed_dict[tf.get_collection('tower_%d_batched_labels' % i)[0]] = batch_val['labels']
 
-            while True:
-                try: 
-                    # Get placeholders and create feed dict
-                    feed_dict = {}
-                    for i in range(specs['num_gpus']):
-                        batch_val = sess.run(batch_data)
-                        feed_dict[tf.get_collection('tower_%d_batched_images' % i)[0]] = batch_val['images']
-                        feed_dict[tf.get_collection('tower_%d_batched_labels' % i)[0]] = batch_val['labels']
-
-                    # Get accuracy tensor
-                    res_acc = tf.get_collection('accuracy')[0]
-                    # Calculate one total batch accuracy
-                    accuracy = sess.run(
-                        res_acc,
-                        feed_dict=feed_dict)
-                    # Append to the accuracy list.
-                    accs.append(accuracy)
-                except tf.errors.OutOfRangeError:
-                    break
-            mean_acc = np.mean(accs)
-            print('step: {0}, accuracy: {1:.4f}'.format(step, mean_acc))
+                        # Get accuracy tensor
+                        res_acc = tf.get_collection('accuracy')[0]
+                        # Calculate one total batch accuracy
+                        accuracy = sess.run(
+                            res_acc,
+                            feed_dict=feed_dict)
+                        # Append to the accuracy list.
+                        accs.append(accuracy)
+                    except tf.errors.OutOfRangeError:
+                        break
+                mean_acc = np.mean(accs)
+                print('step: {0}, accuracy: {1:.4f}'.format(step, mean_acc))
+            f.write('{}, {}\n'.format(step, mean_acc))
+    
 
 def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size,
              summary_dir, max_epochs):
@@ -396,7 +420,7 @@ def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size,
         max_epochs: maximum epochs to evaluate, ≡ 1.
     """
     load_dir = summary_dir + '/train/'
-
+    summary_dir += '/evaluate/'
     # Declare the empty model graph
     with tf.Graph().as_default():
         # Get batched dataset and declare initializable iterator
@@ -404,7 +428,7 @@ def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size,
             total_batch_size, num_gpus, max_epochs, data_dir, dataset, 'test')
         iterator = distributed_dataset.make_initializable_iterator()
         # Call evaluate experiment 
-        run_evaluate_session(iterator, specs, load_dir)
+        run_evaluate_session(iterator, specs, load_dir, summary_dir)
 
 def run_test_session(iterator, specs, load_dir):
     """Find latest checkpoint and load the graph and variables.
