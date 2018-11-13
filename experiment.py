@@ -364,14 +364,14 @@ def run_evaluate_session(iterator, specs, load_dir, summary_dir, kind):
         print('Found ckpt at step {}'.format(latest_step))
         latest_ckpt_meta_path = latest_ckpt_path + '.meta'
     
-    with open(os.path.join(summary_dir, '%s_history.txt' % kind), 'w') as f:
+    with open(os.path.join(summary_dir, '%s_history.txt' % kind), 'a') as f:
         with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
             # Import compute grah
             saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
             batch_data = iterator.get_next()
 
             # Iteratively restore variables
-            for step, ckptpath in all_step_ckpt_pairs:
+            for idx, (step, ckptpath) in enumerate(all_step_ckpt_pairs):
                 # Restore variables 
                 saver.restore(sess, ckptpath)
                 
@@ -398,9 +398,8 @@ def run_evaluate_session(iterator, specs, load_dir, summary_dir, kind):
                     except tf.errors.OutOfRangeError:
                         break
                 mean_acc = np.mean(accs)
-                print('step: {0}, accuracy: {1:.4f}'.format(step, mean_acc))
+                print('step: {0}, accuracy: {1:.4f} ~ {2} / {3}'.format(step, mean_acc, idx + 1, len(all_step_ckpt_pairs)))
             f.write('{}, {}\n'.format(step, mean_acc))
-    
 
 def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size,
              summary_dir, max_epochs):
@@ -433,7 +432,6 @@ def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size,
         test_iterator = test_distributed_dataset.make_initializable_iterator()
         # Call evaluate experiment
         run_evaluate_session(test_iterator, test_specs, load_dir, summary_dir, 'test')
-        
 
 def run_test_session(iterator, specs, load_dir):
     """Find latest checkpoint and load the graph and variables.
