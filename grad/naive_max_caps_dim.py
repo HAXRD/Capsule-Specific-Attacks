@@ -84,7 +84,7 @@ def compute_grads(tower_idx):
 
     """Compute gradients"""
     res_grads = []
-    for i, caps_single_dim_t in enumerate(caps_split_D2_list[:5]):
+    for i, caps_single_dim_t in enumerate(caps_split_D2_list):
         # process name 
         caps_single_dim_t_name = '_'.join(caps_single_dim_t.name.split(':'))
         # define objective function

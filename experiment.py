@@ -61,9 +61,7 @@ tf.flags.DEFINE_integer('max_to_keep', None,
                         'Maximum number of checkpoint files to keep.')
 tf.flags.DEFINE_integer('save_epochs', 10, 'How often to save checkpoints.')
 tf.flags.DEFINE_integer('max_epochs', 1, 
-                        'Number of epochs to train, test, naive, multiscale or dream.\n'
                         'train ~ 1000 (20 when debugging);\n'
-                        'test = 1;\n'
                         'naive_max_norm = 1;\n'
                         'max_norm_diff = 1;\n'
                         'naive_max_caps_dim = 1.')
@@ -86,8 +84,8 @@ vis_grad_computer = {
 }
 
 NORM_ASPECT_TYPES = ['naive_max_norm', 'max_norm_diff']
-DIRECTION_ASPECT_TYPES = ['naive_max_caps_dim']
 
+DIRECTION_ASPECT_TYPES = ['naive_max_caps_dim']
 
 def get_distributed_dataset(total_batch_size, num_gpus, 
                             max_epochs, data_dir, dataset, 
@@ -135,7 +133,7 @@ def get_distributed_dataset(total_batch_size, num_gpus,
                 distributed_dataset, specs = svhn_input.inputs(
                     total_batch_size, num_gpus, max_epochs,
                     data_dir, split)
-            elif dataset == 'cifar10': # TODO
+            elif dataset == 'cifar10':
                 distributed_dataset, specs = cifar10_input.inputs(
                     total_batch_size, num_gpus, max_epochs,
                     data_dir, split)
@@ -232,6 +230,121 @@ def _write_specs_file(write_dir, aspect_type, dataset, total_batch_size,
         f.write('step: {};\n'.format(step))
         f.write('threshold: {};\n'.format(threshold))
     return write_dir
+
+def run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, 
+                         iter_n, step, threshold,
+                         load_dir, summary_dir, aspect_type):
+    """Start norm aspect exploration. Producing results to summary_dir
+    
+    Args:
+        num_gpus: number of GPUs available to use.
+        total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
+        max_epochs: maximum epochs to train.
+        data_dir: the directory containing the input data.
+        dataset: the name of the dataset for the experiments.
+        iter_n: number of iterations to add gradients to original image.
+        step: step size of each iteration of gradient ascent to mutliply.
+        threshold: any gradients less than this value will not be added to the original image.
+        load_dir: the directory to load files.
+        summary_dir: the directory to write files.
+        aspect_type: 'naive_max_caps_dim'
+    """
+    # Write specs file
+    write_dir = _write_specs_file(summary_dir, aspect_type, dataset, total_batch_size,
+                                  max_epochs, iter_n, step, threshold)
+    
+    # Find latest checkpoint information
+    latest_step, latest_ckpt_path, _ = find_latest_checkpoint_info(load_dir)
+    if latest_step == -1 or latest_ckpt_path == None:
+        raise ValueError('Checkpoint files not found!')
+    else:
+        latest_ckpt_meta_path = latest_ckpt_path + '.meta'
+    
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+        # Import compute graph and restore variables
+        saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
+        saver.restore(sess, latest_ckpt_path)
+
+        # Compute the gradients
+        result_grads, batched_images, caps_norms_tensor= vis_grad_computer[aspect_type].compute_grads(0)
+        n_repeats = 16 # 16 dimensional vector
+        print('Number of gradients computed: ', len(result_grads))
+
+        # Get batched dataset and specs
+        batched_dataset, specs = get_distributed_dataset(
+            total_batch_size, num_gpus, max_epochs, 
+            data_dir, dataset, split='dream', n_repeats=n_repeats)
+        iterator = batched_dataset.make_initializable_iterator()
+        batch_data = iterator.get_next()
+        sess.run(iterator.initializer)
+
+        # Suppose now we feed in image with lbl0 = '0',
+        # and only run experiment on maximizing one specific 
+        # dimension of capsule '0'.
+        num_class_loop = specs['num_classes'] 
+        for i in range(max_epochs): # instance number 
+            for j in range(num_class_loop): # j is the index of the target label capsule
+                for k in range(n_repeats): # 16 dimensional wise loop
+                    try:
+                        # Get batched values
+                        batch_val = sess.run(batch_data)
+
+                        # Run gradient ascent {iter_n} iterations with step_size={step}
+                        # and threshold to get gradient ascended stacked image tensor
+                        # (iter_n, 1, 24, 24) and (iter_n, 3, 24, 24)
+                        img0 = batch_val['images']
+                        ga_img_list = utils.run_gradient_ascent(
+                            result_grads[j*num_class_loop+k], img0, batched_images, sess, iter_n, step, threshold)
+                        
+                        # Feed images in {ga_img_list}
+                        ga_pred_list = []
+                        for img in ga_img_list:
+                            pred = sess.run(caps_norms_tensor, feed_dict={batched_images: img})
+                            lbl = np.reshape(np.argmax(pred), -1)
+                            ga_pred_list.append(lbl)
+
+                        ga_img_matr = np.stack(ga_img_list, axis=0)
+                        ga_pred_matr = np.array(ga_pred_list)
+                        # save to npz file
+                        npzfname = 'instance_{}-cap_{}-dim_{}.npz'.format(i, j, k)
+                        npzfname = os.path.join(write_dir, npzfname)
+                        np.savez(npzfname, images=ga_img_matr, labels=ga_pred_matr)
+
+                        print('{0} {1} total:class:gradient = {2:.1f}% ~ {3:.1f}% ~ {4:.1f}%'.format(
+                            ' '*5, '-'*5, 
+                            100.0*(i * num_class_loop * n_repeats + j * n_repeats + k + 1) / (max_epochs * num_class_loop * n_repeats),
+                            100.0*(j * n_repeats + k + 1)/(num_class_loop * n_repeats),
+                            100.0*(k + 1)/n_repeats), end='\r')
+                    except tf.errors.OutOfRangeError:
+                        break
+        print()
+        
+def explore_direction_aspect(num_gpus, data_dir, dataset, 
+                             total_batch_size, summary_dir, max_epochs,
+                             iter_n, step, threshold, aspect_type):
+    """Start direction aspect exploration. Producing results to summary_dir.
+
+    Args:
+        num_gpus: number of GPUs available to use.
+        total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
+        max_epochs: maximum epochs to train.
+        data_dir: the directory containing the input data.
+        dataset: the name of the dataset for the experiments.
+        iter_n: number of iterations to add gradients to original image.
+        step: step size of each iteration of gradient ascent to mutliply.
+        threshold: any gradients less than this value will not be added to the original image.
+        load_dir: the directory to load files.
+        summary_dir: the directory to write files.
+        aspect_type: 'naive_max_caps_dim'
+    """
+    load_dir = os.path.join(summary_dir, 'train')
+    summary_dir = os.path.join(summary_dir, aspect_type)
+    # Declare an empty model graph
+    with tf.Graph().as_default():
+        # Call run direction aspect
+        run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset,
+                             iter_n, step, threshold,
+                             load_dir, summary_dir, aspect_type)
 
 def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset,
                     iter_n, step, threshold,
@@ -607,6 +720,10 @@ def main(_):
         explore_norm_aspect(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset,
                             FLAGS.total_batch_size, FLAGS.summary_dir, FLAGS.max_epochs,
                             FLAGS.iter_n, float(FLAGS.step), float(FLAGS.threshold), FLAGS.mode)
+    elif FLAGS.mode in DIRECTION_ASPECT_TYPES:
+        explore_direction_aspect(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, 
+                                 FLAGS.total_batch_size, FLAGS.summary_dir, FLAGS.max_epochs, 
+                                 FLAGS.iter_n, float(FLAGS.step), float(FLAGS.threshold), FLAGS.mode)
     else:
         raise ValueError(
             "No matching mode found for '{}'".format(FLAGS.mode))
