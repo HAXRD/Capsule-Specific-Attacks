@@ -369,7 +369,7 @@ def run_evaluate_session(iterator, specs, load_dir, summary_dir, kind):
         print('Found ckpt at step {}'.format(latest_step))
         latest_ckpt_meta_path = latest_ckpt_path + '.meta'
     
-    with open(os.path.join(summary_dir, '%s_history.txt' % kind), 'a') as f:
+    with open(os.path.join(summary_dir, '%s_history.txt' % kind), 'a+') as f:
         with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
             # Import compute grah
             saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
@@ -404,7 +404,7 @@ def run_evaluate_session(iterator, specs, load_dir, summary_dir, kind):
                         break
                 mean_acc = np.mean(accs)
                 print('step: {0}, accuracy: {1:.4f} ~ {2} / {3}'.format(step, mean_acc, idx + 1, len(all_step_ckpt_pairs)))
-            f.write('{}, {}\n'.format(step, mean_acc))
+                f.write('{}, {}\n'.format(step, mean_acc))
 
 def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size,
              summary_dir, max_epochs):
