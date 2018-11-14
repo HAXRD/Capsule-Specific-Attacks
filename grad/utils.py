@@ -33,7 +33,6 @@ VisualInfo = collections.namedtuple('VisualInfo', ('target_class', 'epoch_idx',
 def run_gradient_ascent(t_grad, img0, in_ph, sess,
                         iter_n, step, threshold=0.0):
     """
-
     Args:
         t_grad: the gradients of target objective function w.r.t. the batched
             input placeholder images, but actually there is only 1 image per
@@ -46,32 +45,30 @@ def run_gradient_ascent(t_grad, img0, in_ph, sess,
         threshold: gradient lower bound threshold, any calculated gradients under this
             value will be ignored.
     Returns:
-        img: the resultant gradient ascended image, (1, 1, 24, 24) or (1, 3, 24, 24)
-        gsum: the accumulated gradient sum, (1, 1, 24, 24) or (1, 3, 24, 24)
+        ga_img_list: a list of 4D tensor with a shape of (1, 1, 24, 24) or (1, 3, 24, 24),
+            len(ga_img_list) = {iter_n}
     """
-    # show gradient tensor information
-    # print('gradient shape ~ ', t_grad.shape)
     img = img0.copy() # (1, 1, 24, 24) or (1, 3, 24, 24)
-    gsum = np.zeros_like(img) # all 0, TODO: need to handle the negative gradients.
+
+    ga_img_list = [img0.copy()]
 
     for i in range(iter_n):
-        # calculate the gradient values
+        # caculate the gradient values
         g = sess.run(t_grad, feed_dict={in_ph: img})
 
         # filter out any values that belows the threshold
         g_abs = np.absolute(g)
         filt = np.greater(g_abs, threshold).astype(np.float32)
         g *= filt
-
-        img += g*step # (1, 1, 24, 24) or (1, 3, 24, 24)
-        gsum += g*step # (1, 1, 24, 24) or (1, 3, 24, 24)
-
-        # TODO: make it toggle
+        
+        # add gradients
+        img += g * step # (1, 1, 24, 24) or (1, 3, 24, 24)
+        # clip out invalid values
         img = np.clip(img, 0., 1.)
-        # print('{0:.1f}%'.format((i+1)*100.0/iter_n), end='\r')
-    # print()
 
-    return img, gsum
+        ga_img_list.append(img) 
+    
+    return ga_img_list # a list of images with a shape of (1, 1, 24, 24) or (1, 3, 24, 24)
 
 def write_results(write_dir, t_grad, gsum, img0, img1, lbl0, lbl1, ep_i):
     """
