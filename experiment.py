@@ -738,7 +738,7 @@ def main(_):
         explore_norm_aspect(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset,
                             FLAGS.total_batch_size, FLAGS.summary_dir, FLAGS.max_epochs,
                             FLAGS.iter_n, float(FLAGS.step), float(FLAGS.threshold), FLAGS.mode)
-    elif FLAGS.mode in DIRECTION_ASPECT_TYPES or FLAGS.mode in ['noise_' + aspect for aspect in NORM_ASPECT_TYPES]:
+    elif FLAGS.mode in DIRECTION_ASPECT_TYPES or FLAGS.mode in ['noise_' + aspect for aspect in DIRECTION_ASPECT_TYPES]:
         explore_direction_aspect(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, 
                                  FLAGS.total_batch_size, FLAGS.summary_dir, FLAGS.max_epochs, 
                                  FLAGS.iter_n, float(FLAGS.step), float(FLAGS.threshold), FLAGS.mode)

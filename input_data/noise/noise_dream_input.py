@@ -68,7 +68,7 @@ def inputs(split, depth, max_epochs, n_repeats,
         for _ in range(10*n_repeats):
             noise_img_list.append(one_noise_img)
     """Transform into np array"""
-    noise_img_matr = np.stack(noise_img_list, axis=0)
+    noise_img_matr = np.concatenate(noise_img_list, axis=0)
 
     """Process dataset object"""
     # extract single instance 

@@ -107,7 +107,6 @@ venv.bak/
 data
 summary
 *.out
-*.sh
 .DS_Store
 
 NOTES.md
