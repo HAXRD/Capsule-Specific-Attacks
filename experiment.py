@@ -32,7 +32,7 @@ from input_data.mnist import mnist_input, mnist_dream_inputs
 from input_data.fashion_mnist import fashion_mnist_input, fashion_mnist_dream_input
 from input_data.svhn import svhn_input, svhn_dream_input
 from input_data.cifar10 import cifar10_input, cifar10_dream_input
-from input_data.noise import noise_input_
+from input_data.noise import noise_dream_input
 from models import cnn_model
 from models import capsule_model
 from grad import naive_max_norm, max_norm_diff, naive_max_caps_dim, utils
@@ -141,12 +141,17 @@ def get_distributed_dataset(total_batch_size, num_gpus,
             return distributed_dataset, specs
         elif split == 'noise':
             if dataset == 'mnist':
-                batched_dataset, specs = noise_input_.inputs(
-                    max_epochs, n_repeats, depth=1)
-            elif dataset == 'fashion_mnist': # TODO
-                raise NotImplementedError('')
-            elif dataset == 'cifar10': # TODO
-                raise NotImplementedError('')
+                batched_dataset, specs = noise_dream_input.inputs(
+                    'noise', 1, max_epochs, n_repeats)
+            elif dataset == 'fashion_mnist': 
+                batched_dataset, specs = noise_dream_input.inputs(
+                    'noise', 1, max_epochs, n_repeats)
+            elif dataset == 'svhn':
+                batched_dataset, specs = noise_dream_input.inputs(
+                    'noise', 3, max_epochs, n_repeats)
+            elif dataset == 'cifar10': 
+                batched_dataset, specs = noise_dream_input.inputs(
+                    'noise', 3, max_epochs, n_repeats)
             # the data will only have batch_size=1 and not be distributed over {num_gpus} GPUs.
             return batched_dataset, specs
         elif split == 'dream':
@@ -253,6 +258,13 @@ def run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, datas
     write_dir = _write_specs_file(summary_dir, aspect_type, dataset, total_batch_size,
                                   max_epochs, iter_n, step, threshold)
     
+    # Find out to feed in noise of data
+    if 'noise_' in aspect_type:
+        aspect_type = aspect_type[6:]
+        split = 'noise'
+    else:
+        split = 'dream'
+
     # Find latest checkpoint information
     latest_step, latest_ckpt_path, _ = find_latest_checkpoint_info(load_dir)
     if latest_step == -1 or latest_ckpt_path == None:
@@ -273,7 +285,7 @@ def run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, datas
         # Get batched dataset and specs
         batched_dataset, specs = get_distributed_dataset(
             total_batch_size, num_gpus, max_epochs, 
-            data_dir, dataset, split='dream', n_repeats=n_repeats)
+            data_dir, dataset, split=split, n_repeats=n_repeats)
         iterator = batched_dataset.make_initializable_iterator()
         batch_data = iterator.get_next()
         sess.run(iterator.initializer)
@@ -367,6 +379,12 @@ def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset,
     # Write specs file 
     write_dir = _write_specs_file(summary_dir, aspect_type, dataset, total_batch_size,
                                  max_epochs, iter_n, step, threshold)
+    # Find out to feed in noise of data
+    if 'noise_' in aspect_type:
+        aspect_type = aspect_type[6:]
+        split = 'noise'
+    else:
+        split = 'dream'
 
     # Find latest checkpoint information
     latest_step, latest_ckpt_path, _ = find_latest_checkpoint_info(load_dir)
@@ -389,7 +407,7 @@ def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset,
         # Get batched dataset and specs 
         batched_dataset, specs = get_distributed_dataset(
             total_batch_size, num_gpus, max_epochs,
-            data_dir, dataset, split='dream', n_repeats=n_repeats)
+            data_dir, dataset, split=split, n_repeats=n_repeats)
         iterator = batched_dataset.make_initializable_iterator()
         batch_data = iterator.get_next()
         sess.run(iterator.initializer)
@@ -447,7 +465,7 @@ def explore_norm_aspect(num_gpus, data_dir, dataset,
         iter_n: number of iterations to add gradients to original image.
         step: step size of each iteration of gradient ascent to mutliply.
         threshold: any gradients less than this value will not be added to the original image.
-        aspect_type: 'naive_max_norm' or 'max_norm_diff'
+        aspect_type: 'naive_max_norm' or 'max_norm_diff', or 'noise_naive_max_norm' or 'noise_max_norm_diff'
     """
     load_dir = os.path.join(summary_dir, 'train')
     summary_dir = os.path.join(summary_dir, aspect_type)
@@ -716,11 +734,11 @@ def main(_):
     elif FLAGS.mode == 'evaluate':
         evaluate(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size,
                  FLAGS.summary_dir, FLAGS.max_epochs)
-    elif FLAGS.mode in NORM_ASPECT_TYPES:
+    elif FLAGS.mode in NORM_ASPECT_TYPES or FLAGS.mode in ['noise_' + aspect for aspect in NORM_ASPECT_TYPES]:
         explore_norm_aspect(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset,
                             FLAGS.total_batch_size, FLAGS.summary_dir, FLAGS.max_epochs,
                             FLAGS.iter_n, float(FLAGS.step), float(FLAGS.threshold), FLAGS.mode)
-    elif FLAGS.mode in DIRECTION_ASPECT_TYPES:
+    elif FLAGS.mode in DIRECTION_ASPECT_TYPES or FLAGS.mode in ['noise_' + aspect for aspect in NORM_ASPECT_TYPES]:
         explore_direction_aspect(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, 
                                  FLAGS.total_batch_size, FLAGS.summary_dir, FLAGS.max_epochs, 
                                  FLAGS.iter_n, float(FLAGS.step), float(FLAGS.threshold), FLAGS.mode)
