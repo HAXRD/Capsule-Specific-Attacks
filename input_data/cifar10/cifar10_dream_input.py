@@ -21,7 +21,6 @@ def _dream_cropping(image, label):
 
     # crop image into 24x24
     cropped_image_size = 24
-    image = tf.expand_dims(image, -1) # (HWC)
     image = tf.image.resize_image_with_crop_or_pad(
         image, cropped_image_size, cropped_image_size)
     
@@ -74,8 +73,8 @@ def _dream_sample_pairs(split, data_dir, max_epochs, n_repeats,
         'max_epochs': max_epochs,
         'steps_per_epoch': n_repeats,
         'batch_size': total_batch_size,
-        'image_size': 28,
-        'depth': 1,
+        'image_size': 32,
+        'depth': 3,
         'num_classes': 10
     }
 
@@ -116,7 +115,7 @@ def _dream_sample_pairs(split, data_dir, max_epochs, n_repeats,
             list_of_labels.append(labels[idx])
     res_images = np.stack(list_of_images, axis=0)
     res_labels = np.array(list_of_labels)
-    assert res_images.shape == (max_epochs*specs['num_classes']*n_repeats, specs['image_size'], specs['image_size'])
+    assert res_images.shape == (max_epochs*specs['num_classes']*n_repeats, specs['image_size'], specs['image_size'], specs['depth'])
     assert res_labels.shape == (max_epochs*specs['num_classes']*n_repeats,)
 
     specs['total_size'] = res_labels.shape[0]
