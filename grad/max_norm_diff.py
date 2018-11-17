@@ -19,15 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-import numpy as np 
-from PIL import Image
-import re
-import os
 from pprint import pprint
-
-# image analysis 
-from mpl_toolkits import mplot3d
-import matplotlib.pyplot as plt
 
 def compute_grads(tower_idx):
     """Compute the gradients of difference between target norm and the rest w.r.t. the input tensor.
@@ -86,8 +78,8 @@ def compute_grads(tower_idx):
         # append to resultant list
         res_grads.append(caps_norm_diff_grads)
         # print process info
-        print('Done processing {0} ---- {1:.2f}%'.format(
-            caps_norm_diff_name, (1+i)*100.0/float(len(caps_norm_diff_list))))
+        print('Done processing {0} ---- {1}/{2}      '.format(
+            caps_norm_diff_name, i+1, len(caps_norm_diff_list)))
     print('')
 
     """Flatten the list"""

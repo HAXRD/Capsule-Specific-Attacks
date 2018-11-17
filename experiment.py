@@ -35,14 +35,19 @@ from input_data.cifar10 import cifar10_input, cifar10_dream_input
 from input_data.noise import noise_dream_input
 from models import cnn_model
 from models import capsule_model
-from grad import naive_max_norm, max_norm_diff, naive_max_caps_dim, utils
+from grad import naive_max_norm, max_norm_diff, naive_max_caps_dim, max_caps_dim_diff, utils
 
 FLAGS = tf.flags.FLAGS
 
 tf.flags.DEFINE_integer('num_gpus', 2,
                         'Number of GPUs to use.')
 tf.flags.DEFINE_string('mode', 'train',
-                       'train, test, naive_max_norm, max_norm_diff, naive_max_caps_dim')
+                       'train: train the model;\n'
+                       'evaluate: evaluate the model for both training and testing set;\n'
+                       'Capsule Norm Aspect: \n'
+                       '    naive_max_norm, max_norm_diff, noise_naive_max_norm, noise_max_norm_diff;\n'
+                       'Capsule Direction Aspect:\n'
+                       '    naive_max_caps_dim, max_caps_dim_diff, noise_naive_max_caps_dim, noise_max_caps_dim_diff.')
 tf.flags.DEFINE_string('hparams_override', None,
                         '--hparams_override=num_prime_capsules=64,padding=SAME,leaky=true,remake=false')
 tf.flags.DEFINE_string('data_dir', None, 
@@ -61,12 +66,14 @@ tf.flags.DEFINE_integer('max_to_keep', None,
                         'Maximum number of checkpoint files to keep.')
 tf.flags.DEFINE_integer('save_epochs', 10, 'How often to save checkpoints.')
 tf.flags.DEFINE_integer('max_epochs', 1, 
-                        'train ~ 1000 (20 when debugging);\n'
-                        'naive_max_norm = 1;\n'
-                        'max_norm_diff = 1;\n'
-                        'naive_max_caps_dim = 1.')
-tf.flags.DEFINE_integer('iter_n', 10,
-                        'Number of iteration to run the gradient ascent')
+                        'train, evaluate: maximum epochs to run;\n'
+                        'others: number of different examples to visualization.')
+tf.flags.DEFINE_integer('iter_n', 1000,
+                        'Number of iteration to run the gradient ascent\n'
+                        'the code only record any iterations in\n'
+                        '[1, 2, 3, 4, 5, 6, 7, 8, 9,\n'
+                        ' 10, 20, 40, 60, 80,\n'
+                        ' 100, 200, 400, 600, 800, 1000]')
 tf.flags.DEFINE_string('step', '1.0',
                        'Size of step for each iteration')
 tf.flags.DEFINE_string('threshold', '0.0',
@@ -80,12 +87,13 @@ models = {
 vis_grad_computer = {
     'naive_max_norm': naive_max_norm, 
     'max_norm_diff': max_norm_diff, 
-    'naive_max_caps_dim': naive_max_caps_dim
+    'naive_max_caps_dim': naive_max_caps_dim,
+    'max_caps_dim_diff': max_caps_dim_diff
 }
 
 NORM_ASPECT_TYPES = ['naive_max_norm', 'max_norm_diff']
 
-DIRECTION_ASPECT_TYPES = ['naive_max_caps_dim']
+DIRECTION_ASPECT_TYPES = ['naive_max_caps_dim', 'max_caps_dim_diff']
 
 def get_distributed_dataset(total_batch_size, num_gpus, 
                             max_epochs, data_dir, dataset, 
@@ -305,22 +313,42 @@ def run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, datas
                         # and threshold to get gradient ascended stacked image tensor
                         # (iter_n, 1, 24, 24) and (iter_n, 3, 24, 24)
                         img0 = batch_val['images']
-                        ga_img_list = utils.run_gradient_ascent(
+                        iter_n_recorded, ga_img_list = utils.run_gradient_ascent(
                             result_grads[j*num_class_loop+k], img0, batched_images, sess, iter_n, step, threshold)
                         
-                        # Feed images in {ga_img_list}
-                        ga_pred_list = []
-                        for img in ga_img_list:
-                            pred = sess.run(caps_norms_tensor, feed_dict={batched_images: img})
-                            lbl = np.reshape(np.argmax(pred), -1)
-                            ga_pred_list.append(lbl)
+                        ori_class_prob_list = [] # list of (ori_class, probabilities of original class)s
+                        pred_class_prob_list = [] # list of (predicted_class, probabilities of predicted class)s
 
+
+                        # get the original prediction
+                        pred = sess.run(caps_norms_tensor, feed_dict={batched_images: ga_img_list[0]}) # (1, 10)
+                        pred = np.reshape(pred, -1) # (10,)
+                        ori_class = np.argmax(pred) 
+                        p_ori = pred[ori_class]
+                        ori_class_prob_list.append((ori_class, p_ori))
+                        pred_class_prob_list.append((ori_class, p_ori))
+
+                        for img in ga_img_list[1:]:
+                            pred = sess.run(caps_norms_tensor, feed_dict={batched_images: img}) # (1, 10)
+                            pred = np.reshape(pred, -1) # (10,)
+
+                            # get probability of original class
+                            p_ori = pred[ori_class]
+                            ori_class_prob_list.append((ori_class, p_ori))
+                            # get probability of predicted class
+                            pred_class = np.argmax(pred)
+                            p_pred = pred[pred_class]
+                            pred_class_prob_list.append((pred_class, p_pred))
+                        
+                        ga_iter_matr = np.array(iter_n_recorded)
                         ga_img_matr = np.stack(ga_img_list, axis=0)
-                        ga_pred_matr = np.array(ga_pred_list)
+                        ori_class_prob_matr = np.array(ori_class_prob_list)
+                        pred_class_prob_matr = np.array(pred_class_prob_list)
+
                         # save to npz file
                         npzfname = 'instance_{}-cap_{}-dim_{}.npz'.format(i, j, k)
                         npzfname = os.path.join(write_dir, npzfname)
-                        np.savez(npzfname, images=ga_img_matr, labels=ga_pred_matr)
+                        np.savez(npzfname, iters=ga_iter_matr, images=ga_img_matr, ori=ori_class_prob_matr, pred=pred_class_prob_matr)
 
                         print('{0} {1} total:class:gradient = {2:.1f}% ~ {3:.1f}% ~ {4:.1f}%'.format(
                             ' '*5, '-'*5, 
@@ -424,22 +452,41 @@ def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset,
                         # and threshold to get gradient ascended stacked image tensor
                         # (iter_n, 1, 24, 24) and (iter_n, 3, 24, 24)
                         img0 = batch_val['images']
-                        ga_img_list = utils.run_gradient_ascent(
+                        iter_n_recorded, ga_img_list = utils.run_gradient_ascent(
                             result_grads[k], img0, batched_images, sess, iter_n, step, threshold)
                         
-                        # Feed images in {ga_img_list}
-                        ga_pred_list = []
-                        for img in ga_img_list:
-                            pred = sess.run(caps_norms_tensor, feed_dict={batched_images: img})
-                            lbl = np.reshape(np.argmax(pred), -1)
-                            ga_pred_list.append(lbl)
+                        ori_class_prob_list = [] # list of (ori_class, probabilities of original class)s
+                        pred_class_prob_list = [] # list of (predicted_class, probabilities of predicted class)s
+
+                        # get the original prediction
+                        pred = sess.run(caps_norms_tensor, feed_dict={batched_images: ga_img_list[0]}) # (1, 10)
+                        pred = np.reshape(pred, -1) # (10,)
+                        ori_class = np.argmax(pred) 
+                        p_ori = pred[ori_class]
+                        ori_class_prob_list.append((ori_class, p_ori))
+                        pred_class_prob_list.append((ori_class, p_ori))
+
+                        for img in ga_img_list[1:]:
+                            pred = sess.run(caps_norms_tensor, feed_dict={batched_images: img}) # (1, 10)
+                            pred = np.reshape(pred, -1) # (10,)
+
+                            # get probability of original class
+                            p_ori = pred[ori_class]
+                            ori_class_prob_list.append((ori_class, p_ori))
+                            # get probability of predicted class
+                            pred_class = np.argmax(pred)
+                            p_pred = pred[pred_class]
+                            pred_class_prob_list.append((pred_class, p_pred))
                         
+                        ga_iter_matr = np.array(iter_n_recorded)
                         ga_img_matr = np.stack(ga_img_list, axis=0)
-                        ga_pred_matr = np.array(ga_pred_list)
+                        ori_class_prob_matr = np.array(ori_class_prob_list)
+                        pred_class_prob_matr = np.array(pred_class_prob_list)
+
                         # save to npz file
                         npzfname = 'instance_{}-lbl0_{}-lbl1_{}.npz'.format(i, j, k)
                         npzfname = os.path.join(write_dir, npzfname)
-                        np.savez(npzfname, images=ga_img_matr, labels=ga_pred_matr)
+                        np.savez(npzfname, iters=ga_iter_matr, images=ga_img_matr, ori=ori_class_prob_matr, pred=pred_class_prob_matr)
 
                         print('{0} {1} total:class:gradient = {2:.1f}% ~ {3:.1f}% ~ {4:.1f}%'.format(
                             ' '*5, '-'*5, 
