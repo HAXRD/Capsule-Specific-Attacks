@@ -10,5 +10,5 @@ source ~/tfp363/bin/activate
 python ~/DeepDream/experiment.py --total_batch_size=1 --mode=noise_max_caps_dim_diff --data_dir=/home/xuc/DeepDream/data/cifar-10-batches-mat/ --dataset=cifar10 --max_epochs=5 --iter_n=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/final/caps_full/cifar10
 
 # debug
-# python ~/DeepDream/experiment.py --total_batch_size=1 --mode=noise_max_caps_dim_diff --data_dir=/home/xuc/DeepDream/data/cifar-10-batches-mat/ --dataset=cifar10 --max_epochs=5 --iter_n=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/caps_full/cifar10
+# python ~/DeepDream/experiment.py --total_batch_size=1 --mode=noise_max_caps_dim_diff --data_dir=/home/xuc/DeepDream/data/cifar-10-batches-mat/ --dataset=cifar10 --max_epochs=5 --iter_n=100 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/caps_full/cifar10
 

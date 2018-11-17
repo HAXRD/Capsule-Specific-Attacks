@@ -10,5 +10,5 @@ source ~/tfp363/bin/activate
 python ~/DeepDream/experiment.py --total_batch_size=1 --mode=noise_naive_max_norm --data_dir=/home/xuc/DeepDream/data/fashion_mnist/ --dataset=fashion_mnist --max_epochs=5 --iter_n=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/final/caps_full/fmnist
 
 # debug
-# python ~/DeepDream/experiment.py --total_batch_size=200 --mode=noise_naive_max_norm --data_dir=/home/xuc/DeepDream/data/fashion_mnist/ --dataset=fashion_mnist --max_epochs=5 --iter_n=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/caps_full/fmnist
+# python ~/DeepDream/experiment.py --total_batch_size=1 --mode=noise_naive_max_norm --data_dir=/home/xuc/DeepDream/data/fashion_mnist/ --dataset=fashion_mnist --max_epochs=5 --iter_n=100 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/caps_full/fmnist
 
