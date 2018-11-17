@@ -73,10 +73,10 @@ def compute_grads(tower_idx):
             axis=2, name='-'.join(splited_by_D1_t.name.split(':')[:-1]) + '/dim_split')
         # [(?, 1, 1), (?, 1, 1), ... x 16]
         caps_split_D2_list.append(temp)
-    
+
     """Calculate the dimensional differences"""
     caps_dim_diff_list = []
-    for cap_dim_list in enumerate(caps_split_D2_list):
+    for cap_dim_list in caps_split_D2_list:
         cap_dim_sum = tf.reduce_sum(cap_dim_list, axis=2) # (?, 1, 1)
         temp_list = [2 * cap_dim - cap_dim_sum
                              for cap_dim in cap_dim_list]
