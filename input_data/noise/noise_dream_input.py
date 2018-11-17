@@ -62,7 +62,7 @@ def inputs(split, depth, max_epochs, n_repeats,
     for _ in range(max_epochs):
         one_noise_img = np.random.uniform(size=(
             specs['batch_size'],
-            specs['depth'], specs['image_size'], specs['image_size'])) + 127.0
+            specs['depth'], specs['image_size'], specs['image_size']))*128 + 127.0
         """Convert into 0. ~ 1. """
         one_noise_img = one_noise_img * (1. / 255.)
         for _ in range(10*n_repeats):
