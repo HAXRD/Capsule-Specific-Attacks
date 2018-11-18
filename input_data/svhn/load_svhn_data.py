@@ -34,7 +34,7 @@ def load_svhn(path, split='train'):
                         # 'y' (73257, 1)
     
     images = np.transpose(mat['X'], [3, 0, 1, 2])
-    labels = np.reshape(mat['y'], -1) - 1
+    labels = np.reshape(mat['y'], -1) % 10
 
     # images: (?, 32, 32, 3)
     # labels: (?, )
