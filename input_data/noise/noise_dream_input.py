@@ -28,16 +28,17 @@ def _dream_process(image):
     }
     return batched_features
 
-def inputs(split, depth, max_epochs, n_repeats,
+def inputs(split, depth, max_epochs, n_repeats, cropped_size,
            seed=123, total_batch_size=1):
     """Construct noise inputs for dream experiment.
 
     Args:
-        split: 'noise' split to read from dataset.
-        depth: number of channels.
-        max_epochs: maximum epochs to go through the model.
-        n_repeats: number of computed gradients / number of the same input to repeat.
-        seed: seed to produce pseudo randomness that we can replicate each time.
+        split: 'noise' split to read from dataset;
+        depth: number of channels;
+        max_epochs: maximum epochs to go through the model;
+        n_repeats: number of computed gradients / number of the same input to repeat;
+        cropped_size: image size after cropping;
+        seed: seed to produce pseudo randomness that we can replicate each time;
         total_batch_size: total number of images per batch.
     Returns:    
         batched_features: a dictionary of the input data features.
@@ -49,7 +50,7 @@ def inputs(split, depth, max_epochs, n_repeats,
         'max_epochs': max_epochs,
         'steps_per_epoch': n_repeats,
         'batch_size': total_batch_size,
-        'image_size': 24,
+        'image_size': cropped_size,
         'depth': depth,
         'num_classes': 10
     }

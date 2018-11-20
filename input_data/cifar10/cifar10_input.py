@@ -22,26 +22,27 @@ import tensorflow as tf
 
 from input_data.cifar10 import load_cifar10_data
 
-def _single_process(image, label, specs):
+def _single_process(image, label, specs, cropped_size):
     """A function to parse each record into an image and an label.
 
     Args:
-        image: numpy array image object (28, 28, 3), 0 ~ 255 uint8
-        label: numpy array label, (,)
-        specs: dataset specifications
+        image: numpy array image object (28, 28, 3), 0 ~ 255 uint8;
+        label: numpy array label, (,);
+        specs: dataset specifications;
+        cropped_size: image size after cropping.
     Returns:
         feature: a dictionary contains an image instance and a label instance.    
     """
     if specs['distort']:
-        cropped_size = 24
-        if specs['split'] == 'train':
-            # random cropping 
-            image = tf.random_crop(image, [cropped_size, cropped_size, 3])
-            # random flipping
-            # image = tf.image.random_flip_left_right(image)
-        elif specs['split'] == 'test':
-            # central cropping
-            image = tf.image.resize_image_with_crop_or_pad(image, cropped_size, cropped_size)
+        if cropped_size <= specs['image_size']:
+            if specs['split'] == 'train':
+                # random cropping 
+                image = tf.random_crop(image, [cropped_size, cropped_size, 3])
+                # random flipping
+                # image = tf.image.random_flip_left_right(image)
+            elif specs['split'] == 'test':
+                # central cropping
+                image = tf.image.resize_image_with_crop_or_pad(image, cropped_size, cropped_size)
     # convert from 0 ~ 255 to 0. ~ 1.
     image = tf.cast(image, tf.float32) * (1. / 255.)
     # transpose image into (CHW)
@@ -67,19 +68,20 @@ def _feature_process(feature):
     }
     return batched_feature
 
-def inputs(total_batch_size, num_gpus, max_epochs, 
+def inputs(total_batch_size, num_gpus, max_epochs, cropped_size,
            data_dir, split, distort=True):
     """Construct inputs for cifar10 dataset.
 
     Args:
-        total_batch_size: total number of images per batch.
-        num_gpus: number of GPUs available to use.
-        max_epochs: maximum epochs to go through the model.
-        data_dir: path to the fashion-mnist data directory.
-        split: 'train' or 'test', which split of dataset to read from.
+        total_batch_size: total number of images per batch;
+        num_gpus: number of GPUs available to use;
+        max_epochs: maximum epochs to go through the model;
+        cropped_size: image size after cropping;
+        data_dir: path to the fashion-mnist data directory;
+        split: 'train' or 'test', which split of dataset to read from;
         distort: whether to distort the iamges, including scale down the image and rotations.
     Returns:
-        batched_dataset: Dataset object, each instance is a feature dictionary
+        batched_dataset: Dataset object, each instance is a feature dictionary;
         specs: dataset specifications.
     """
     assert split == 'train' or split == 'test'
@@ -100,6 +102,10 @@ def inputs(total_batch_size, num_gpus, max_epochs,
         'num_classes': 10,
         'distort': distort
     }
+    
+    if cropped_size == None:
+        cropped_size = specs['image_size']
+    assert cropped_size <= specs['image_size']
 
     """Load data from mat file"""
     images, labels = load_cifar10_data.load_cifar10(data_dir, split)
@@ -124,9 +130,9 @@ def inputs(total_batch_size, num_gpus, max_epochs,
         dataset = dataset.repeat(specs['max_epochs'])
     # process single example
     dataset = dataset.map(
-        lambda image, label: _single_process(image, label, specs),
+        lambda image, label: _single_process(image, label, specs, cropped_size),
         num_parallel_calls=3)
-    specs['image_size'] = 24
+    specs['image_size'] = cropped_size
     # stack into batches
     batched_dataset = dataset.batch(specs['batch_size'])
     # process into feature
@@ -137,28 +143,3 @@ def inputs(total_batch_size, num_gpus, max_epochs,
     batched_dataset = batched_dataset.prefetch(specs['num_gpus'])
 
     return batched_dataset, specs
-
-if __name__ == '__main__':
-    ######### debug for train and test #########
-    total_batch_size, num_gpus, max_epochs = 2, 2, 1
-    data_dir, split, distort = '/Users/xu/Downloads/fashion-mnist', 'test', True
-
-    dataset, specs = inputs(total_batch_size, num_gpus, max_epochs,
-                            data_dir, split, distort)
-    iterator = dataset.make_initializable_iterator()
-    next_feature = iterator.get_next()
-    
-    from pprint import pprint
-    pprint(specs)
-
-    with tf.Session() as sess:
-        sess.run(iterator.initializer)
-
-        single = sess.run(next_feature)
-        print(single['images'])
-        print(single['labels'].shape)
-
-        import matplotlib.pyplot as plt 
-        img = np.squeeze(single['images'])
-        plt.imshow(img, cmap='gray')
-        plt.show()

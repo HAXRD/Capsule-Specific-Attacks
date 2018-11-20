@@ -18,25 +18,26 @@ import numpy as np
 import os
 from input_data.svhn import load_svhn_data
 
-def _single_process(image, label, specs):
+def _single_process(image, label, specs, cropped_size):
     """Map function to process single instance of dataset object.
     
     Args: 
-        image: numpy array image object, (28, 28, 3), 0 ~ 255 uint8
-        label: numpy array label, (,)
-        specs: dataset specifications
+        image: numpy array image object, (28, 28, 3), 0 ~ 255 uint8;
+        label: numpy array label, (,);
+        specs: dataset specifications;
+        cropped_size: image size after cropping.
     Returns:
         feature: a dictionary contains an image, and an label.
     """
     if specs['distort']:
-        cropped_size = 24
-        if specs['split'] == 'train':
-            # random cropping 
-            image = tf.random_crop(image, [cropped_size, cropped_size, 3])
-        elif specs['split'] == 'test':
-            # central cropping
-            image = tf.image.resize_image_with_crop_or_pad(
-                image, cropped_size, cropped_size)
+        if cropped_size < specs['image_size']:
+            if specs['split'] == 'train':
+                # random cropping 
+                image = tf.random_crop(image, [cropped_size, cropped_size, 3])
+            elif specs['split'] == 'test':
+                # central cropping
+                image = tf.image.resize_image_with_crop_or_pad(
+                    image, cropped_size, cropped_size)
     # convert from 0 ~ 255 to 0. ~ 1.
     image = tf.cast(image, tf.float32) * (1. / 255.)
     # transpose image into (CHW)
@@ -62,16 +63,17 @@ def _feature_process(feature):
     }
     return batched_feature
 
-def inputs(total_batch_size, num_gpus, max_epochs,
+def inputs(total_batch_size, num_gpus, max_epochs, cropped_size,
            data_dir, split, distort=True):
     """Construct inputs for mnist dataset.
 
     Args:
-        total_batch_size: total number of images per batch.
-        num_gpus: number of GPUs available to use.
-        max_epochs: maximum epochs to go through the model.
-        data_dir: path to the mnist tfrecords data directory.
-        split: 'train' or 'test', which split of dataset to read from.
+        total_batch_size: total number of images per batch;
+        num_gpus: number of GPUs available to use;
+        max_epochs: maximum epochs to go through the model;
+        cropped_size: image size after cropping;
+        data_dir: path to the mnist tfrecords data directory;
+        split: 'train' or 'test', which split of dataset to read from;
         distort: whether to distort the images, including random cropping, rotations.
     Returns:
         batched_dataset: Dataset object each instance is a feature dictionary
@@ -96,6 +98,10 @@ def inputs(total_batch_size, num_gpus, max_epochs,
         'distort': distort
     }
 
+    if cropped_size == None:
+        cropped_size = specs['image_size']
+    assert cropped_size <= specs['image_size']
+
     """Load data from mat file"""
     images, labels = load_svhn_data.load_svhn(data_dir, split)
     # images: 0 ~ 255 uint8 (?, 32, 32, 3)
@@ -119,9 +125,9 @@ def inputs(total_batch_size, num_gpus, max_epochs,
         dataset = dataset.repeat(specs['max_epochs'])
     # process single example
     dataset = dataset.map(
-        lambda image, label: _single_process(image, label, specs),
+        lambda image, label: _single_process(image, label, specs, cropped_size),
         num_parallel_calls=3)
-    specs['image_size'] = 24 
+    specs['image_size'] = cropped_size 
     # stack into batches
     batched_dataset = dataset.batch(specs['batch_size'])
     # process into feature

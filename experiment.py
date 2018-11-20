@@ -78,6 +78,8 @@ tf.flags.DEFINE_string('step', '1.0',
                        'Size of step for each iteration')
 tf.flags.DEFINE_string('threshold', '0.0',
                        'Those gradients after divided by the its standard deviations that larger than the threshold will be added')
+tf.flags.DEFINE_string('image_size', None,
+                       'Define the image size for dataset')
 
 models = {
     'cnn': cnn_model.CNNModel,
@@ -96,7 +98,7 @@ NORM_ASPECT_TYPES = ['naive_max_norm', 'max_norm_diff']
 DIRECTION_ASPECT_TYPES = ['naive_max_caps_dim', 'max_caps_dim_diff']
 
 def get_distributed_dataset(total_batch_size, num_gpus, 
-                            max_epochs, data_dir, dataset, 
+                            max_epochs, data_dir, dataset, cropped_size,
                             split='default', n_repeats=None):
     """Reads the input data from input_data functions.
 
@@ -113,14 +115,15 @@ def get_distributed_dataset(total_batch_size, num_gpus,
         it is calculating and averaging the gradients of the same images.
 
     Args:
-        total_batch_size: total number of data entries over all towers.
-        num_gpus: number of GPUs available to use.
+        total_batch_size: total number of data entries over all towers;
+        num_gpus: number of GPUs available to use;
         max_epochs: for 'train' split, this parameter decides the number of 
             epochs to train for the model; for 'test' split, this parameter
-            should ≡ 1 since we are not doing resemble evalutions in this project.
-        data_dir: the directory containing the data.
-        dataset: the name of dataset.
-        split: 'train', 'test', 'noise', 'dream'.
+            should ≡ 1 since we are not doing resemble evalutions in this project;
+        data_dir: the directory containing the data;
+        dataset: the name of dataset;
+        cropped_size: image size after cropping;
+        split: 'train', 'test', 'noise', 'dream';
         n_repeats('noise' and 'dream'): the number of repeats of the same image.
     Returns:
         batched_dataset: Dataset object.
@@ -131,50 +134,50 @@ def get_distributed_dataset(total_batch_size, num_gpus,
             assert total_batch_size % num_gpus == 0
             if dataset == 'mnist':
                 distributed_dataset, specs = mnist_input.inputs(
-                    total_batch_size, num_gpus, max_epochs,
+                    total_batch_size, num_gpus, max_epochs, cropped_size,
                     data_dir, split)
             elif dataset == 'fashion_mnist': 
                 distributed_dataset, specs = fashion_mnist_input.inputs(
-                    total_batch_size, num_gpus, max_epochs,
+                    total_batch_size, num_gpus, max_epochs, cropped_size,
                     data_dir, split)
             elif dataset == 'svhn': 
                 distributed_dataset, specs = svhn_input.inputs(
-                    total_batch_size, num_gpus, max_epochs,
+                    total_batch_size, num_gpus, max_epochs, cropped_size,
                     data_dir, split)
             elif dataset == 'cifar10':
                 distributed_dataset, specs = cifar10_input.inputs(
-                    total_batch_size, num_gpus, max_epochs,
+                    total_batch_size, num_gpus, max_epochs, cropped_size,
                     data_dir, split)
             # the data will be distributed over {num_gpus} GPUs.
             return distributed_dataset, specs
         elif split == 'noise':
             if dataset == 'mnist':
                 batched_dataset, specs = noise_dream_input.inputs(
-                    'noise', 1, max_epochs, n_repeats)
+                    'noise', 1, max_epochs, n_repeats, cropped_size)
             elif dataset == 'fashion_mnist': 
                 batched_dataset, specs = noise_dream_input.inputs(
-                    'noise', 1, max_epochs, n_repeats)
+                    'noise', 1, max_epochs, n_repeats, cropped_size)
             elif dataset == 'svhn':
                 batched_dataset, specs = noise_dream_input.inputs(
-                    'noise', 3, max_epochs, n_repeats)
+                    'noise', 3, max_epochs, n_repeats, cropped_size)
             elif dataset == 'cifar10': 
                 batched_dataset, specs = noise_dream_input.inputs(
-                    'noise', 3, max_epochs, n_repeats)
+                    'noise', 3, max_epochs, n_repeats, cropped_size)
             # the data will only have batch_size=1 and not be distributed over {num_gpus} GPUs.
             return batched_dataset, specs
         elif split == 'dream':
             if dataset == 'mnist':
                 batched_dataset, specs = mnist_dream_inputs.inputs(
-                    'train', data_dir, max_epochs, n_repeats)
+                    'train', data_dir, max_epochs, n_repeats, cropped_size)
             elif dataset == 'fashion_mnist': 
                 batched_dataset, specs = fashion_mnist_dream_input.inputs(
-                    'train', data_dir, max_epochs, n_repeats)
+                    'train', data_dir, max_epochs, n_repeats, cropped_size)
             elif dataset == 'svhn':
                 batched_dataset, specs = svhn_dream_input.inputs(
-                    'train', data_dir, max_epochs, n_repeats)
+                    'train', data_dir, max_epochs, n_repeats, cropped_size)
             elif dataset == 'cifar10': 
                 batched_dataset, specs = cifar10_dream_input.inputs(
-                    'train', data_dir, max_epochs, n_repeats)
+                    'train', data_dir, max_epochs, n_repeats, cropped_size)
             # the data will only have batch_size=1 and not be distributed over {num_gpus} GPUs.
             return batched_dataset, specs
         else:
@@ -244,7 +247,7 @@ def _write_specs_file(write_dir, aspect_type, dataset, total_batch_size,
         f.write('threshold: {};\n'.format(threshold))
     return write_dir
 
-def run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, 
+def run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, cropped_size,
                          iter_n, step, threshold,
                          load_dir, summary_dir, aspect_type):
     """Start norm aspect exploration. Producing results to summary_dir
@@ -255,6 +258,7 @@ def run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, datas
         max_epochs: maximum epochs to train.
         data_dir: the directory containing the input data.
         dataset: the name of the dataset for the experiments.
+        cropped_size: image size after cropping.
         iter_n: number of iterations to add gradients to original image.
         step: step size of each iteration of gradient ascent to mutliply.
         threshold: any gradients less than this value will not be added to the original image.
@@ -293,7 +297,8 @@ def run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, datas
         # Get batched dataset and specs
         batched_dataset, specs = get_distributed_dataset(
             total_batch_size, num_gpus, max_epochs, 
-            data_dir, dataset, split=split, n_repeats=n_repeats)
+            data_dir, dataset, cropped_size,
+            split=split, n_repeats=n_repeats)
         iterator = batched_dataset.make_initializable_iterator()
         batch_data = iterator.get_next()
         sess.run(iterator.initializer)
@@ -359,7 +364,7 @@ def run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, datas
                         break
         print()
         
-def explore_direction_aspect(num_gpus, data_dir, dataset, 
+def explore_direction_aspect(num_gpus, data_dir, dataset, cropped_size,
                              total_batch_size, summary_dir, max_epochs,
                              iter_n, step, threshold, aspect_type):
     """Start direction aspect exploration. Producing results to summary_dir.
@@ -370,6 +375,7 @@ def explore_direction_aspect(num_gpus, data_dir, dataset,
         max_epochs: maximum epochs to train.
         data_dir: the directory containing the input data.
         dataset: the name of the dataset for the experiments.
+        cropped_size: image size after cropping.
         iter_n: number of iterations to add gradients to original image.
         step: step size of each iteration of gradient ascent to mutliply.
         threshold: any gradients less than this value will not be added to the original image.
@@ -382,11 +388,11 @@ def explore_direction_aspect(num_gpus, data_dir, dataset,
     # Declare an empty model graph
     with tf.Graph().as_default():
         # Call run direction aspect
-        run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset,
+        run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, cropped_size,
                              iter_n, step, threshold,
                              load_dir, summary_dir, aspect_type)
 
-def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset,
+def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, cropped_size,
                     iter_n, step, threshold,
                     load_dir, summary_dir, aspect_type):
     """Start norm aspect exploration. Producing results to summary_dir
@@ -397,6 +403,7 @@ def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset,
         max_epochs: maximum epochs to train.
         data_dir: the directory containing the input data.
         dataset: the name of the dataset for the experiments.
+        cropped_size: image size after cropping.
         iter_n: number of iterations to add gradients to original image.
         step: step size of each iteration of gradient ascent to mutliply.
         threshold: any gradients less than this value will not be added to the original image.
@@ -434,8 +441,9 @@ def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset,
         
         # Get batched dataset and specs 
         batched_dataset, specs = get_distributed_dataset(
-            total_batch_size, num_gpus, max_epochs,
-            data_dir, dataset, split=split, n_repeats=n_repeats)
+            total_batch_size, num_gpus, max_epochs, 
+            data_dir, dataset, cropped_size,
+            split=split, n_repeats=n_repeats)
         iterator = batched_dataset.make_initializable_iterator()
         batch_data = iterator.get_next()
         sess.run(iterator.initializer)
@@ -497,7 +505,7 @@ def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset,
                         break
         print()
 
-def explore_norm_aspect(num_gpus, data_dir, dataset, 
+def explore_norm_aspect(num_gpus, data_dir, dataset, cropped_size,
                         total_batch_size, summary_dir, max_epochs,
                         iter_n, step, threshold, aspect_type):
     """Produce gradient ascent on given images.
@@ -506,6 +514,7 @@ def explore_norm_aspect(num_gpus, data_dir, dataset,
         num_gpus: number of GPUs available to use.
         data_dir: the directory containing the input data.
         dataset: the name of the dataset for the experiments.
+        cropped_size: image size after cropping.
         total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
         summary_dir: the directory to write files.
         max_epochs: maximum epochs to train.
@@ -519,7 +528,7 @@ def explore_norm_aspect(num_gpus, data_dir, dataset,
     # Declare an empty model graph
     with tf.Graph().as_default():
         # Call runn norm aspect
-        run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset,
+        run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, cropped_size,
                         iter_n, step, threshold,
                         load_dir, summary_dir, aspect_type)
 
@@ -584,7 +593,7 @@ def run_evaluate_session(iterator, specs, load_dir, summary_dir, kind):
                 print('step: {0}, accuracy: {1:.4f} ~ {2} / {3}'.format(step, mean_acc, idx + 1, len(all_step_ckpt_pairs)))
                 f.write('{}, {}\n'.format(step, mean_acc))
 
-def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size,
+def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size, cropped_size,
              summary_dir, max_epochs):
     """Iteratively restore the graph and variables, and return the data to 
     train and test curve.
@@ -595,6 +604,7 @@ def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size,
         dataset: the name of the dataset for the experiments.
         model_type: the name of the model architecture.
         total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
+        cropped_size: image size after cropping.
         summary_dir: the directory to load the model.
         max_epochs: maximum epochs to evaluate, ≡ 1.
     """
@@ -604,14 +614,18 @@ def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size,
     with tf.Graph().as_default():
         # Get train batched dataset and declare initializable iterator
         train_distributed_dataset, train_specs = get_distributed_dataset(
-            total_batch_size, num_gpus, max_epochs, data_dir, dataset, 'train')
+            total_batch_size, num_gpus, max_epochs, 
+            data_dir, dataset, cropped_size,
+            'train')
         train_iterator = train_distributed_dataset.make_initializable_iterator()
         # Call evaluate experiment 
         run_evaluate_session(train_iterator, train_specs, load_dir, summary_dir, 'train')
     with tf.Graph().as_default():
         # Get batched dataset and declare initializable iterator
         test_distributed_dataset, test_specs = get_distributed_dataset(
-            total_batch_size, num_gpus, max_epochs, data_dir, dataset, 'test')
+            total_batch_size, num_gpus, max_epochs,
+             data_dir, dataset, cropped_size,
+             'test')
         test_iterator = test_distributed_dataset.make_initializable_iterator()
         # Call evaluate experiment
         run_evaluate_session(test_iterator, test_specs, load_dir, summary_dir, 'test')
@@ -706,7 +720,7 @@ def run_train_session(iterator, specs, # Dataset related
             int(total_time % 60),
             accuracy))
 
-def train(hparams, num_gpus, data_dir, dataset, model_type, total_batch_size,
+def train(hparams, num_gpus, data_dir, dataset, model_type, total_batch_size, cropped_size,
                    summary_dir, max_to_keep,
                    save_epochs, max_epochs):
     """Trains a model with batch sizes of 100 to 50000/100*`max_epochs` steps.
@@ -723,6 +737,7 @@ def train(hparams, num_gpus, data_dir, dataset, model_type, total_batch_size,
         dataset: the name of the dataset for the experiments.
         model_type: the name of the model architecture.
         total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
+        cropped_size: image size after cropping.
         summary_dir: the directory to write summaries and save the model.
         max_to_keep: maximum checkpoint files to keep.
         save_epochs: how often the training model should be saved.
@@ -734,7 +749,9 @@ def train(hparams, num_gpus, data_dir, dataset, model_type, total_batch_size,
     with tf.Graph().as_default():
         # Get batched dataset and declare initializable iterator
         distributed_dataset, specs = get_distributed_dataset(
-            total_batch_size, num_gpus, max_epochs, data_dir, dataset, 'train')
+            total_batch_size, num_gpus, max_epochs, 
+            data_dir, dataset, cropped_size,
+            'train')
         iterator = distributed_dataset.make_initializable_iterator()
         # Initialize model with hparams and specs
         model = models[model_type](hparams, specs)
@@ -775,18 +792,18 @@ def main(_):
         hparams.parse(FLAGS.hparams_override)
 
     if FLAGS.mode == 'train':
-        train(hparams, FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size,
+        train(hparams, FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size,
                        FLAGS.summary_dir, FLAGS.max_to_keep,
                        FLAGS.save_epochs, FLAGS.max_epochs)
     elif FLAGS.mode == 'evaluate':
-        evaluate(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size,
+        evaluate(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size,
                  FLAGS.summary_dir, FLAGS.max_epochs)
     elif FLAGS.mode in NORM_ASPECT_TYPES or FLAGS.mode in ['noise_' + aspect for aspect in NORM_ASPECT_TYPES]:
-        explore_norm_aspect(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset,
+        explore_norm_aspect(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.image_size,
                             FLAGS.total_batch_size, FLAGS.summary_dir, FLAGS.max_epochs,
                             FLAGS.iter_n, float(FLAGS.step), float(FLAGS.threshold), FLAGS.mode)
     elif FLAGS.mode in DIRECTION_ASPECT_TYPES or FLAGS.mode in ['noise_' + aspect for aspect in DIRECTION_ASPECT_TYPES]:
-        explore_direction_aspect(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, 
+        explore_direction_aspect(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.image_size,
                                  FLAGS.total_batch_size, FLAGS.summary_dir, FLAGS.max_epochs, 
                                  FLAGS.iter_n, float(FLAGS.step), float(FLAGS.threshold), FLAGS.mode)
     else:

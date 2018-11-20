@@ -18,19 +18,20 @@ import numpy as np
 import os 
 from input_data.svhn import load_svhn_data
 
-def _dream_cropping(image, label):
+def _dream_cropping(image, label, specs, cropped_size):
     """Process image and label into feature.
 
     Args:
-        image: uint8 0 ~ 255, (?, 32, 32, 3)
-        label: uint8 0 ~ 9, (?,)
+        image: uint8 0 ~ 255, (?, 32, 32, 3);
+        label: uint8 0 ~ 9, (?,);
+        specs: specification dictionary;
+        cropped_size: image size after cropping.
     Return: 
         feature: a dictionary containing an image and an label.
     """
-    # crop image into 24x24
-    cropped_image_size = 24
-    image = tf.image.resize_image_with_crop_or_pad(
-        image, cropped_image_size, cropped_image_size)
+    if cropped_size < specs['image_size']:
+        image = tf.image.resize_image_with_crop_or_pad(
+            image, cropped_size, cropped_size)
     
     # convert from 0 ~ 255 to 0. ~ 1.
     image = tf.cast(image, tf.float32) * (1. / 255.)
@@ -131,16 +132,17 @@ def _dream_sample_pairs(split, data_dir, max_epochs, n_repeats,
     specs['total_size'] = res_labels.shape[0]
     return (res_images, res_labels), specs
 
-def inputs(split, data_dir, max_epochs, n_repeats,
+def inputs(split, data_dir, max_epochs, n_repeats, cropped_size,
            seed=123, total_batch_size=1):
     """Construct fashion mnist inputs for dream experiment.
 
     Args:
-        split: 'train' or 'test' split to read from dataset.
-        data_dir: path to mnist data directory.
-        max_epochs: maximum epochs to go through the model.
-        n_repeats: number of computed gradients / number of the same input to repeat.
-        seed: seed to produce pseudo randomness that we can replicate each time.
+        split: 'train' or 'test' split to read from dataset;
+        data_dir: path to mnist data directory;
+        max_epochs: maximum epochs to go through the model;
+        n_repeats: number of computed gradients / number of the same input to repeat;
+        cropped_size: image size after cropping;
+        seed: seed to produce pseudo randomness that we can replicate each time;
         total_batch_size: total number of images per batch.
     Returns:    
         batched_features: a dictionary of the input data features.
@@ -151,15 +153,21 @@ def inputs(split, data_dir, max_epochs, n_repeats,
     (images, labels), specs = _dream_sample_pairs(
         split, data_dir, max_epochs, n_repeats, seed, total_batch_size)
     
+    if cropped_size == None:
+        cropped_size = specs['image_size']
+    assert cropped_size <= specs['image_size']
+
     """Process dataset object"""
     dataset = tf.data.Dataset.from_tensor_slices((images, labels))
     dataset = dataset.prefetch(1)
-    dataset = dataset.map(_dream_cropping, num_parallel_calls=3)
+    dataset = dataset.map(
+        lambda image, label: _dream_cropping(image, label, specs, cropped_size), 
+        num_parallel_calls=3)
     batched_dataset = dataset.batch(specs['batch_size'])
     batched_dataset = batched_dataset.map(_dream_process, num_parallel_calls=3)
     batched_dataset = batched_dataset.prefetch(1)
 
-    specs['image_size'] = 24
+    specs['image_size'] = cropped_size
 
     return batched_dataset, specs
     
