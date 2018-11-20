@@ -7,7 +7,7 @@
 
 source ~/tfp363/bin/activate
 
-python ~/DeepDream/experiment.py --total_batch_size=1 --mode=noise_naive_max_norm --data_dir=/home/xuc/DeepDream/data/svhn/ --dataset=svhn --max_epochs=5 --iter_n=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/final/cnn/svhn --model=cnn
+python ~/DeepDream/experiment.py --total_batch_size=1 --mode=noise_naive_max_norm --data_dir=/home/xuc/DeepDream/data/svhn/ --dataset=svhn --max_epochs=5 --iter_n=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/final/cnn/svhn --model=cnn --step=0.1
 
 # debug
 # python ~/DeepDream/experiment.py --total_batch_size=1 --mode=noise_naive_max_norm --data_dir=/home/xuc/DeepDream/data/svhn/ --dataset=svhn --max_epochs=5 --iter_n=100 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/cnn/svhn --model=cnn

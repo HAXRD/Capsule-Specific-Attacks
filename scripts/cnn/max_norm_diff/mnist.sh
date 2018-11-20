@@ -7,7 +7,7 @@
 
 source ~/tfp363/bin/activate
 
-python ~/DeepDream/experiment.py --total_batch_size=1 --mode=max_norm_diff --data_dir=/home/xuc/DeepDream/data/mnist/ --dataset=mnist --max_epochs=5 --iter_n=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/final/cnn/mnist --model=cnn
+python ~/DeepDream/experiment.py --total_batch_size=1 --mode=max_norm_diff --data_dir=/home/xuc/DeepDream/data/mnist/ --dataset=mnist --max_epochs=5 --iter_n=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/final/cnn/mnist --model=cnn --step=0.1
 
 # debug
 # python ~/DeepDream/experiment.py --total_batch_size=1 --mode=max_norm_diff --data_dir=/home/xuc/DeepDream/data/mnist/ --dataset=mnist --max_epochs=5 --iter_n=100 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/cnn/mnist --model=cnn
