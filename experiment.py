@@ -631,7 +631,7 @@ def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size, cropped_
         run_evaluate_session(test_iterator, test_specs, load_dir, summary_dir, 'test')
 
 def run_train_session(iterator, specs, # Dataset related
-                      summary_dir, max_to_keep, # Checkpoint related
+                      summary_dir, max_to_keep, max_epochs, # Checkpoint related
                       joined_result, save_epochs): # Model related
     """Starts a session, train the model, write summary into event file,
     and save the whole graph every {save_epochs} epochs.
@@ -662,8 +662,17 @@ def run_train_session(iterator, specs, # Dataset related
         epoch_time = 0
         total_time = 0
         step_counter = 0
+        epochs_done = 0
+        # restore ckpt if not restart
+        latest_step, latest_checkpoint_fpath, _ = find_latest_checkpoint_info(summary_dir, False)
+        if latest_step != -1 and latest_checkpoint_fpath != None:
+            saver.restore(sess, latest_checkpoint_fpath)
+            step_counter = latest_step
+            epochs_done = step_counter // specs['steps_per_epoch']
+        total_steps = specs['steps_per_epoch'] * (max_epochs - epochs_done)
+
         # Start feeding process
-        while True: # epoch loop
+        for _ in range(total_steps):
             start_anchor = time.time() # time anchor
             step_counter += 1
             
@@ -769,7 +778,7 @@ def train(hparams, num_gpus, data_dir, dataset, model_type, total_batch_size, cr
         # Call train experiment
 
         run_train_session(iterator, specs,
-                          summary_dir, max_to_keep,
+                          summary_dir, max_to_keep, max_epochs,
                           joined_result, save_epochs)
 
 def default_hparams():
