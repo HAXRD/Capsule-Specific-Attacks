@@ -78,7 +78,7 @@ tf.flags.DEFINE_string('step', '1.0',
                        'Size of step for each iteration')
 tf.flags.DEFINE_string('threshold', '0.0',
                        'Those gradients after divided by the its standard deviations that larger than the threshold will be added')
-tf.flags.DEFINE_string('image_size', None,
+tf.flags.DEFINE_integer('image_size', None,
                        'Define the image size for dataset')
 
 models = {
