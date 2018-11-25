@@ -195,14 +195,14 @@ def plot_train_vs_test(data_dir):
             legends = ['train', 'test']
             ax.plot(x_train, y_train)
             ax.plot(x_test, y_test)
-            ax.legend(legends, loc='upper left')
+            ax.legend(legends, loc='bottom right')
             ax.set(xlabel='epoch', ylabel='accuracy', title=title)
     plt.tight_layout()
     plt.show()
 
 """Norm aspect"""
 def compare_Ori_vs_Tar(model_dataset_lvl_dir, obj_type, instance_num, cap_idx, 
-                       diffOris_vs_sameTar=True, selected_iter_ns=AVAILABLE_ITER_NS):
+                       diffOris_vs_sameTar=True, RGBtoGray=False, selected_iter_ns=AVAILABLE_ITER_NS):
     """Given the instance number = {instance_num},
 
             if {diffOris_vs_sameTar} == True:
@@ -226,6 +226,10 @@ def compare_Ori_vs_Tar(model_dataset_lvl_dir, obj_type, instance_num, cap_idx,
         obj_type: objective function type;
         instance_num: instance number of the example;
         cap_idx: original class index;
+        diffOris_vs_SameTar: if True, compare the results of processing different original images into
+            a same target class; if False, compare the results of processing same original images into 
+            different target classes;
+        RGBtoGray: whether visualize into grayscale;
         selected_iter_ns: selected iteration numbers to visualize.
     """
 
@@ -245,7 +249,7 @@ def compare_Ori_vs_Tar(model_dataset_lvl_dir, obj_type, instance_num, cap_idx,
     """Define canvas"""
     nrows, ncols = 10, len(selected_iter_ns)
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(ncols*1.2, nrows*1.2))
-    
+
     # custom legends
     legends = [Patch(facecolor='white', label='A. Original image prediction is correct;'),
                Patch(facecolor='white', label='B. Original image prediction matches Processed image prediction;'),
@@ -324,7 +328,11 @@ def compare_Ori_vs_Tar(model_dataset_lvl_dir, obj_type, instance_num, cap_idx,
 
             # show image
             if len(img.shape) == 3:
-                ax.imshow(img)
+                if RGBtoGray:
+                    gray_img = np.sum(img / 3.0, axis=2)
+                    ax.imshow(gray_img, cmap='gray')
+                else:
+                    ax.imshow(img)
             else:
                 ax.imshow(img, cmap='gray')
 
@@ -333,7 +341,7 @@ def compare_Ori_vs_Tar(model_dataset_lvl_dir, obj_type, instance_num, cap_idx,
 
 """Direction aspect"""
 def compare_mostActiveCap_vs_diffDims(model_dataset_lvl_dir, obj_type, instance_num, cap_idx,
-                                      selected_iter_ns=AVAILABLE_ITER_NS):
+                                      RGBtoGray=False, selected_iter_ns=AVAILABLE_ITER_NS):
     """Given the instance number = {instance_num},
                  selected capsule index = {cap_idx},
                  selected iteration numbers = {selected_iter_ns},
@@ -352,6 +360,7 @@ def compare_mostActiveCap_vs_diffDims(model_dataset_lvl_dir, obj_type, instance_
         obj_type: objective function type;
         instance_num: instance number of the example;
         cap_idx: selected capsule index;
+        RGBtoGray: whether visualize into grayscale;
         selected_iter_ns: selected iteration numbers to visualize.
     """
     
@@ -429,7 +438,11 @@ def compare_mostActiveCap_vs_diffDims(model_dataset_lvl_dir, obj_type, instance_
 
             # show image
             if len(img.shape) == 3:
-                ax.imshow(img)
+                if RGBtoGray:
+                    gray_img = np.sum(img / 3.0, axis=2)
+                    ax.imshow(gray_img, cmap='gray')
+                else:
+                    ax.imshow(img)
             else:
                 ax.imshow(img, cmap='gray')
 
