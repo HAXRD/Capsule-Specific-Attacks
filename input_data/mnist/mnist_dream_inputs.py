@@ -43,7 +43,7 @@ def _dream_process(feature):
     return batched_features
 
 def _dream_sample_pairs(split, data_dir, max_epochs, n_repeats,
-                        seed=123, total_batch_size=1):
+                        total_batch_size=1):
     """
     We do the following steps to produce the dataset:
         1. sample one (image, label) pair in one class;
@@ -60,7 +60,6 @@ def _dream_sample_pairs(split, data_dir, max_epochs, n_repeats,
         data_dir: path to the mnist data directory.
         max_epochs: maximum epochs to go through the model.
         n_repeats: number of computed gradients
-        seed: seed to produce pseudo randomness.
         batch_size: total number of images per batch.
     Returns:
         processed images, labels and specs
@@ -85,8 +84,6 @@ def _dream_sample_pairs(split, data_dir, max_epochs, n_repeats,
     specs['total_size'] = int(images.shape[0])
 
     """Process np arrary"""
-    # set seed
-    np.random.seed(seed)
     # sort by labels to get the index permutation
     # classes: 0 1 2 3 4 5 6 7 8 9
     if split == 'train':
@@ -98,12 +95,9 @@ def _dream_sample_pairs(split, data_dir, max_epochs, n_repeats,
     labels = labels[perm]
     
     sampled_idc_lists = [] # [list of indices for 0, ... for 1, ...]
-    for i in range(specs['num_classes']):
+    for start in indices[:-1]:
         sampled_idc_lists.append(
-            np.random.randint(
-                low=indices[i],
-                high=indices[i+1],
-                size=max_epochs).tolist())
+            np.arange(start, start + max_epochs).tolist())
     sampled_idc_mat = np.array(sampled_idc_lists)
     sampled_idc_mat = np.transpose(sampled_idc_mat, [1, 0])
     sampled_idc_lists = sampled_idc_mat.flatten().tolist()
@@ -124,7 +118,7 @@ def _dream_sample_pairs(split, data_dir, max_epochs, n_repeats,
     return (res_images, res_labels), specs
 
 def inputs(split, data_dir, max_epochs, n_repeats, cropped_size,
-           seed=123, total_batch_size=1):
+           total_batch_size=1):
     """Construct mnist inputs for dream experiment.
 
     Args:
@@ -133,7 +127,6 @@ def inputs(split, data_dir, max_epochs, n_repeats, cropped_size,
         max_epochs: maximum epochs to go through the model;
         n_repeats: number of computed gradients / number of the same input to repeat;
         cropped_size: image size after cropping;
-        seed: seed to produce pseudo randomness that we can replicate each time.
         total_batch_size: total number of images per batch.
     Returns:    
         batched_features: a dictionary of the input data features.
@@ -142,7 +135,7 @@ def inputs(split, data_dir, max_epochs, n_repeats, cropped_size,
     
     """Load sampled images and labels"""
     (images, labels), specs = _dream_sample_pairs(
-        split, data_dir, max_epochs, n_repeats, seed, total_batch_size)
+        split, data_dir, max_epochs, n_repeats, total_batch_size)
 
     if cropped_size == None:
         cropped_size = specs['image_size']
