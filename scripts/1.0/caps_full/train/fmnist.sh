@@ -7,8 +7,8 @@
 
 source ~/tfp363/bin/activate
 
-python ~/DeepDream/experiment.py --total_batch_size=200 --mode=train --model=cap --data_dir=/home/xuc/DeepDream/data/fashion_mnist/ --dataset=fashion_mnist --max_epochs=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/final/caps_full/fmnist
+python ~/DeepDream/experiment.py --total_batch_size=200 --mode=train --model=cap --data_dir=/home/xuc/DeepDream/data/fashion_mnist/ --dataset=fashion_mnist --max_epochs=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/final/caps_full/fmnist 
 
 # debug
-# python ~/DeepDream/experiment.py --total_batch_size=200 --mode=train --model=cap --data_dir=/home/xuc/DeepDream/data/fashion_mnist/ --dataset=fashion_mnist --max_epochs=20 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/caps_full/fmnist
+# python ~/DeepDream/experiment.py --total_batch_size=200 --mode=train --model=cap --data_dir=/home/xuc/DeepDream/data/fashion_mnist/ --dataset=fashion_mnist --max_epochs=20 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/caps_full/fmnist 
 
