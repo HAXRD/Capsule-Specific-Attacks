@@ -7,7 +7,7 @@
 
 source ~/tfp363/bin/activate
 
-python ~/DeepDream/experiment.py --total_batch_size=1 --mode=naive_max_norm --data_dir=/home/xuc/DeepDream/data/mnist/ --dataset=mnist --max_epochs=10 --iter_n=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/final_24_0.1/caps_full/mnist --step=0.1 --image_size=24
+python ~/DeepDream/experiment.py --total_batch_size=1 --mode=naive_max_norm --data_dir=/home/xuc/DeepDream/data/mnist/ --dataset=mnist --max_epochs=10 --iter_n=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/final/caps_full/mnist --step=0.1 --image_size=24
 
 # debug
 # python ~/DeepDream/experiment.py --total_batch_size=1 --mode=naive_max_norm --data_dir=/home/xuc/DeepDream/data/mnist/ --dataset=mnist --max_epochs=10 --iter_n=100 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/caps_full/mnist --step=0.1 --image_size=24

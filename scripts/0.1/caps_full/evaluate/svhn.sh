@@ -7,7 +7,7 @@
 
 source ~/tfp363/bin/activate
 
-python ~/DeepDream/experiment.py --total_batch_size=200 --mode=evaluate --data_dir=/home/xuc/DeepDream/data/svhn/ --dataset=svhn --max_epochs=1 --summary_dir=/home/xuc/projects/def-sageev/xuc/final_24_0.1/caps_full/svhn --image_size=24
+python ~/DeepDream/experiment.py --total_batch_size=200 --mode=evaluate --data_dir=/home/xuc/DeepDream/data/svhn/ --dataset=svhn --max_epochs=1 --summary_dir=/home/xuc/projects/def-sageev/xuc/final/caps_full/svhn --image_size=24
 
 # debug
 # python ~/DeepDream/experiment.py --total_batch_size=200 --mode=evaluate --data_dir=/home/xuc/DeepDream/data/svhn/ --dataset=svhn --max_epochs=1 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/caps_full/svhn --image_size=24
