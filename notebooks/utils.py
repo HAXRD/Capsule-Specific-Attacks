@@ -68,7 +68,7 @@ NORM_ASPECT_METHODS = ['naive_max_norm', 'max_norm_diff', 'noise_naive_max_norm'
 DIRECTION_ASPECT_METHODS = ['naive_max_caps_dim', 'max_norm_diff', 'noise_naive_max_caps_dim', 'noise_max_norm_diff']
 
 """Set up data directories"""
-data_dir = '/Users/xu/Storage/final'
+data_dir = '/Users/xu/Storage/final_24_step_0.1'
 
 """Utility functions"""
 def get_model_lvl_dirs(data_dir, model_pattern='*'):
@@ -236,9 +236,6 @@ def compare_Ori_vs_Tar(model_dataset_lvl_dir, obj_type, instance_num, cap_idx,
     """Get dataset type"""
     dataset = os.path.basename(model_dataset_lvl_dir)
 
-    """Get model type"""
-    model_type = model_dataset_lvl_dir.split('/')[-2]
-
     """Process selected iteration numbers"""
     # filter out those indices that are not available.
     selected_iter_ns = [iter_n for iter_n in selected_iter_ns
@@ -288,9 +285,17 @@ def compare_Ori_vs_Tar(model_dataset_lvl_dir, obj_type, instance_num, cap_idx,
             tar_idx = data['iters'].tolist().index(iter_n)
             # load images, original (class, probability), predicted (class, probability)
             img_raw = np.clip(np.squeeze(data['images'][tar_idx], axis=0), 0., 1.) # (1, 24, 24) or (3, 24, 24)
-            ori_cl, ori_p = data['ori'][tar_idx].tolist()
-            pred_cl, pred_p = data['pred'][tar_idx].tolist()
+            
+            # find original prediction at iteration=0
+            ori_pred = data['pred'][0]
+            ori_pred_cl = np.argmax(ori_pred)
+            ori_pred_p = ori_pred[ori_pred_cl]
 
+            # find processed image prediction at current iteration
+            curr_pred = data['pred'][tar_idx]
+            curr_pred_cl = np.argmax(curr_pred)
+            most_pred_p = curr_pred[curr_pred_cl]
+            
             # process image
             img = np.transpose(img_raw, [1, 2, 0])
             img = np.squeeze(img)
@@ -300,22 +305,22 @@ def compare_Ori_vs_Tar(model_dataset_lvl_dir, obj_type, instance_num, cap_idx,
             ax.get_xaxis().set_ticks([])
             ax.get_yaxis().set_ticks([])
             if diffOris_vs_sameTar:
-                if i != ori_cl: # if the original label != the current capsule --> blue
-                    if pred_cl != ori_cl: # if the predicted label != original class --> blue + red
+                if i != ori_pred_cl: # if the original label != the current capsule --> blue
+                    if curr_pred_cl != ori_pred_cl: # if the predicted label != original class --> blue + red
                         ax.xaxis.label.set_color('magenta')
                     else: # --> blue
                         ax.xaxis.label.set_color('blue') 
                 else: # --> red
-                    if pred_cl != ori_cl:
+                    if curr_pred_cl != ori_pred_cl:
                         ax.xaxis.label.set_color('red')
             else:
-                if cap_idx != ori_cl: # --> blue
-                    if pred_cl != ori_cl: # --> blue + red
+                if cap_idx != ori_pred_cl: # --> blue
+                    if curr_pred_cl != ori_pred_cl: # --> blue + red
                         ax.xaxis.label.set_color('magenta')
                     else: # --> blue
                         ax.xaxis.label.set_color('blue')
                 else:
-                    if pred_cl != ori_cl:
+                    if curr_pred_cl != ori_pred_cl:
                         ax.xaxis.label.set_color('red')
             
             if i == 0:
@@ -323,7 +328,7 @@ def compare_Ori_vs_Tar(model_dataset_lvl_dir, obj_type, instance_num, cap_idx,
             if j == 0:
                 ax.set_ylabel(categories[dataset][i])
         
-            xlabel = '(%d:' % int(ori_cl) + ('%.1f,\n' % ori_p) + '%d:' % int(pred_cl) + ('%.1f)' % pred_p)
+            xlabel = '(%d:' % int(ori_pred_cl) + ('%.1f,\n' % ori_pred_p) + '%d:' % int(curr_pred_cl) + ('%.1f)' % most_pred_p)
             ax.set_xlabel(xlabel)
 
             # show image
@@ -335,6 +340,125 @@ def compare_Ori_vs_Tar(model_dataset_lvl_dir, obj_type, instance_num, cap_idx,
                     ax.imshow(img)
             else:
                 ax.imshow(img, cmap='gray')
+
+    plt.tight_layout()
+    plt.show()
+
+def compare_Ori_vs_Tar_Distribution(model_dataset_lvl_dir, obj_type, instance_num, cap_idx, 
+                                    diffOris_vs_sameTar=True, selected_iter_ns=AVAILABLE_ITER_NS):
+    """Given the instance number = {instance_num},
+
+            if {diffOris_vs_sameTar} == True:
+                 target image class = {cap_idx}
+            else:
+                 original image class = {cap_idx}
+
+                 selected iteration numbers = {selected_iter_ns},
+    to compare the results on different target classes given the same original
+    image class.
+
+    available iteration numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9,
+                                   10, 20, 40, 60, 80,
+                                   100, 200, 400, 600, 800, 1000]
+    
+    # of rows = # of classes
+    # of cols = # of iterations
+
+    Args:
+        model_dataset_lvl_dir: model-dataset level directory;
+        obj_type: objective function type;
+        instance_num: instance number of the example;
+        cap_idx: original class index;
+        diffOris_vs_SameTar: if True, compare the results of processing different original images into
+            a same target class; if False, compare the results of processing same original images into 
+            different target classes;
+        selected_iter_ns: selected iteration numbers to visualize.
+    """
+
+    """Get dataset type"""
+    dataset = os.path.basename(model_dataset_lvl_dir)
+
+    """Get model type"""
+    model = model_dataset_lvl_dir.split('/')[-2]
+
+    """Process selected iteration numbers"""
+    # filter out those indices that are not available.
+    selected_iter_ns = [iter_n for iter_n in selected_iter_ns
+                        if iter_n in AVAILABLE_ITER_NS]
+    # add 0 iteration at the beginning.
+    selected_iter_ns = [0] + selected_iter_ns
+
+    """Define canvas"""
+    nrows, ncols = 10, len(selected_iter_ns)
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(ncols*2.0, nrows*2.0))
+    barwidth = 0.6
+    opacity = 0.5
+
+    if diffOris_vs_sameTar:
+        fig.text(0., 0.5, 'Original Class', va='center', rotation='vertical')
+    else:
+        fig.text(0., 0.5, 'Target Class', va='center', rotation='vertical')
+    fig.text(0.5, 1.0, 'Iteration', ha='center')
+    axes = np.reshape(axes, (nrows, ncols))
+
+    """Get data paths"""
+    # get load directory
+    load_dir = get_load_dir(model_dataset_lvl_dir, obj_type)
+
+    """Plot ditribution"""
+    for i in range(nrows): # classes
+        for j, iter_n in enumerate(selected_iter_ns): # iterations
+            if diffOris_vs_sameTar:
+                data = np.load(os.path.join(
+                    load_dir, 'instance_{}-lbl0_{}-lbl1_{}.npz'.format(instance_num, i, cap_idx)))
+            else:
+                data = np.load(os.path.join(
+                    load_dir, 'instance_{}-lbl0_{}-lbl1_{}.npz'.format(instance_num, cap_idx, i)))
+            
+            # define ax for convenient access
+            ax = axes[i, j]
+            if model == 'cnn':
+                ax.set_ylim([-150.0, 50.0])
+
+            # find the index of target iteration number in loaded data
+            tar_idx = data['iters'].tolist().index(iter_n)
+
+            # find original prediction at iteration=0
+            ori_pred = data['pred'][0]
+            ori_pred_cl = np.argmax(ori_pred) # scalar
+
+            # find processed image prediction at current iteration
+            curr_pred = data['pred'][tar_idx]
+            assert curr_pred.shape == (10, )
+            most_pred_cl = np.argmax(curr_pred) # scalar
+
+            # handle original prediction GREEN
+            ori_mean = np.array(curr_pred[ori_pred_cl])
+            ori_index = np.array(ori_pred_cl) 
+            
+            ax.bar(ori_index, ori_mean, barwidth,
+                   alpha=opacity, color='g')
+
+            # handle processed most activated prediction RED
+            most_mean = np.array(curr_pred[most_pred_cl])
+            most_index = np.array(most_pred_cl) 
+
+            ax.bar(most_index, most_mean, barwidth,
+                   alpha=opacity, color='r')
+
+            # handle the rest BLUE
+            depletion = np.stack((ori_index, most_index), axis=0)
+            rest_means = np.delete(curr_pred, depletion)
+            rest_indices = np.delete(np.arange(10), depletion)
+            
+            ax.bar(rest_indices, rest_means, barwidth,
+                   alpha=opacity, color='b')
+
+            # vertical and horizontal labels
+            if i == 0:
+                ax.set_title(iter_n)
+            if j == 0:
+                ax.set_ylabel(categories[dataset][i])
 
     plt.tight_layout()
     plt.show()
@@ -388,7 +512,8 @@ def compare_mostActiveCap_vs_diffDims(model_dataset_lvl_dir, obj_type, instance_
 
 
     fig.text(0.5, 1., 'Iteration', ha='center')
-    fig.text(0., 0.5, 'Target Dimension', va='center', rotation='vertical')
+    fig.text(0., 0.5, 'Operating Class: {}, Target Dimension'.format(categories[dataset][cap_idx]),
+             va='center', rotation='vertical')
     axes = np.reshape(axes, (nrows, ncols))
 
     """Get data paths"""
@@ -409,8 +534,16 @@ def compare_mostActiveCap_vs_diffDims(model_dataset_lvl_dir, obj_type, instance_
             tar_idx = data['iters'].tolist().index(iter_n)
             # load images, original (class, probability), predicted (class, probability)
             img_raw = np.clip(np.squeeze(data['images'][tar_idx], axis=0), 0., 1.) # (1, 24, 24) or (3, 24, 24)
-            ori_cl, ori_p = data['ori'][tar_idx].tolist()
-            pred_cl, pred_p = data['pred'][tar_idx].tolist()
+
+            # find original prediction at iteration=0
+            ori_pred = data['pred'][0]
+            ori_pred_cl = np.argmax(ori_pred)
+            ori_pred_p = ori_pred[ori_pred_cl]
+
+            # find processed image prediction at current iteration
+            curr_pred = data['pred'][tar_idx]
+            most_pred_cl = np.argmax(curr_pred)
+            most_pred_p = curr_pred[most_pred_cl]
 
             # process image
             img = np.transpose(img_raw, [1, 2, 0])
@@ -420,20 +553,20 @@ def compare_mostActiveCap_vs_diffDims(model_dataset_lvl_dir, obj_type, instance_
             # disable x, y axes
             ax.get_xaxis().set_ticks([])
             ax.get_yaxis().set_ticks([])
-            if cap_idx != ori_cl: # if the original label != the current capsule --> blue
-                if pred_cl != ori_cl: # if the predicted label != original class --> blue + red
+            if cap_idx != ori_pred_cl: # if the original label != the current capsule --> blue
+                if most_pred_cl != ori_pred_cl: # if the predicted label != original class --> blue + red
                     ax.xaxis.label.set_color('magenta')
                 else: # --> blue
                     ax.xaxis.label.set_color('blue') 
             else: 
-                if pred_cl != ori_cl: # --> red
+                if most_pred_cl != ori_pred_cl: # --> red
                     ax.xaxis.label.set_color('red')
 
             if i == 0:
                 ax.set_title(iter_n)
             if j == 0:
                 ax.set_ylabel(i)
-            xlabel = '(%d:' % int(ori_cl) + ('%.2f,' % ori_p)[1:] + '%d:' % int(pred_cl) + ('%.2f)' % pred_p)[1:]
+            xlabel = '(%d:' % int(ori_pred_cl) + ('%.2f,' % ori_pred_p)[1:] + '%d:' % int(most_pred_cl) + ('%.2f)' % most_pred_p)[1:]
             ax.set_xlabel(xlabel)
 
             # show image
@@ -445,6 +578,111 @@ def compare_mostActiveCap_vs_diffDims(model_dataset_lvl_dir, obj_type, instance_
                     ax.imshow(img)
             else:
                 ax.imshow(img, cmap='gray')
+
+    plt.tight_layout()
+    plt.show()
+
+def compare_mostActiveCap_vs_diffDims_Distribution(model_dataset_lvl_dir, obj_type, instance_num, cap_idx,
+                                                   selected_iter_ns=AVAILABLE_ITER_NS):
+    """Given the instance number = {instance_num},
+                 selected capsule index = {cap_idx},
+                 selected iteration numbers = {selected_iter_ns},
+    to compare the results on different target dimensions given the same original
+    image whose class = selected capsule index.
+
+    available iteration numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9,
+                                   10, 20, 40, 60, 80,
+                                   100, 200, 400, 600, 800, 1000]
+    
+    # of rows = # of classes
+    # of cols = # of iterations
+
+    Args:
+        model_dataset_lvl_dir: model-dataset level directory;
+        obj_type: objective function type;
+        instance_num: instance number of the example;
+        cap_idx: selected capsule index;
+        selected_iter_ns: selected iteration numbers to visualize.
+    """
+
+    """Get dataset type"""
+    dataset = os.path.basename(model_dataset_lvl_dir)
+
+    """Get model type"""
+    model = model_dataset_lvl_dir.split('/')[-2]
+
+    """Process selected iteration numbers"""
+    # filter out those indices that are not available.
+    selected_iter_ns = [iter_n for iter_n in selected_iter_ns
+                        if iter_n in AVAILABLE_ITER_NS]
+    # add 0 iteration at the beginning
+    selected_iter_ns = [0] + selected_iter_ns
+
+    """Define canvas"""
+    nrows, ncols = 16, len(selected_iter_ns)
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(ncols*1.2, nrows*1.2))
+    barwidth= .6
+    opacity = .5
+
+    fig.text(0.5, 1., 'Iteration', ha='center')
+    fig.text(0., 0.5, 'Operating Class: ({})~{}, Target Dimension'.format(cap_idx, categories[dataset][cap_idx]),
+             va='center', rotation='vertical')
+    axes = np.reshape(axes, (nrows, ncols))
+
+    """Get data paths"""
+    # get load directory
+    load_dir = get_load_dir(model_dataset_lvl_dir, obj_type)
+
+    """Plot visualizations"""
+    for i in range(nrows):
+        for j, iter_n in enumerate(selected_iter_ns):
+            data = np.load(os.path.join(
+                load_dir, 'instance_{}-cap_{}-dim_{}.npz'.format(instance_num, cap_idx, i)))
+            
+            # define ax for convenient access
+            ax = axes[i, j]
+            if model == 'cnn':
+                ax.set_ylim([-150.0, 50.0])
+
+            """Plot distributions"""
+            # find the index of target iteration number in loaded data
+            tar_idx = data['iters'].tolist().index(iter_n)
+
+            # find original prediction at iteration=0
+            ori_pred = data['pred'][0]
+            ori_pred_cl = np.argmax(ori_pred)
+
+            # find processed image prediction at current iteration
+            curr_pred = data['pred'][tar_idx]
+            most_pred_cl = np.argmax(curr_pred)
+
+            # handle original prediction GREEN
+            ori_mean = np.array(curr_pred[ori_pred_cl])
+            ori_index = np.array(ori_pred_cl) 
+            
+            ax.bar(ori_index, ori_mean, barwidth,
+                   alpha=opacity, color='g')
+
+            # handle processed most activated prediction RED
+            most_mean = np.array(curr_pred[most_pred_cl])
+            most_index = np.array(most_pred_cl) 
+
+            ax.bar(most_index, most_mean, barwidth,
+                   alpha=opacity, color='r')
+
+            # handle the rest BLUE
+            depletion = np.stack((ori_index, most_index), axis=0)
+            rest_means = np.delete(curr_pred, depletion)
+            rest_indices = np.delete(np.arange(10), depletion)
+            
+            ax.bar(rest_indices, rest_means, barwidth,
+                   alpha=opacity, color='b')
+
+            # vertical and horizontal labels
+            if i == 0:
+                ax.set_title(iter_n)
+            if j == 0:
+                ax.set_ylabel(i)
 
     plt.tight_layout()
     plt.show()

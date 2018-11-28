@@ -100,6 +100,9 @@ venv.bak/
 # mkdocs documentation
 /site
 
+# vscode
+.vscode
+
 # mypy
 .mypy_cache/
 
@@ -108,5 +111,10 @@ data
 summary
 *.out
 .DS_Store
+table.html
+*.ipynb
+commands.sh
+*.png
+tmp.py
 
 NOTES.md
