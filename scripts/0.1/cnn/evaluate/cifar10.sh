@@ -7,8 +7,8 @@
 
 source ~/tfp363/bin/activate
 
-python ~/DeepDream/experiment.py --total_batch_size=200 --mode=evaluate --data_dir=/home/xuc/DeepDream/data/cifar-10-batches-mat/ --dataset=cifar10 --max_epochs=1 --summary_dir=/home/xuc/projects/def-sageev/xuc/final/cnn/cifar10 --model=cnn --image_size=24
+python ~/DeepDream/experiment.py --total_batch_size=200 --mode=evaluate --data_dir=/home/xuc/DeepDream/data/cifar-10-batches-mat/ --dataset=cifar10 --max_epochs=1 --summary_dir=/home/xuc/projects/def-sageev/xuc/final_24_0.1/cnn/cifar10 --model=cnn --image_size=24
 
 # debug
-# python ~/DeepDream/experiment.py --total_batch_size=200 --mode=evaluate --data_dir=/home/xuc/DeepDream/data/cifar-10-batches-mat/ --dataset=cifar10 --max_epochs=1 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/cnn/cifar10 --model=cnn
+# python ~/DeepDream/experiment.py --total_batch_size=200 --mode=evaluate --data_dir=/home/xuc/DeepDream/data/cifar-10-batches-mat/ --dataset=cifar10 --max_epochs=1 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/cnn/cifar10 --model=cnn --image_size=24
 

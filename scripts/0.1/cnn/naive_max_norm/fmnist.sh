@@ -7,8 +7,8 @@
 
 source ~/tfp363/bin/activate
 
-python ~/DeepDream/experiment.py --total_batch_size=1 --mode=naive_max_norm --data_dir=/home/xuc/DeepDream/data/fashion_mnist/ --dataset=fashion_mnist --max_epochs=5 --iter_n=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/final/cnn/fmnist --model=cnn --step=0.1 --image_size=24
+python ~/DeepDream/experiment.py --total_batch_size=1 --mode=naive_max_norm --data_dir=/home/xuc/DeepDream/data/fashion_mnist/ --dataset=fashion_mnist --max_epochs=10 --iter_n=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/final_24_0.1/cnn/fmnist --model=cnn --step=0.1 --image_size=24
 
 # debug
-# python ~/DeepDream/experiment.py --total_batch_size=1 --mode=naive_max_norm --data_dir=/home/xuc/DeepDream/data/fashion_mnist/ --dataset=fashion_mnist --max_epochs=5 --iter_n=100 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/cnn/fmnist --model=cnn
+# python ~/DeepDream/experiment.py --total_batch_size=1 --mode=naive_max_norm --data_dir=/home/xuc/DeepDream/data/fashion_mnist/ --dataset=fashion_mnist --max_epochs=10 --iter_n=100 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/cnn/fmnist --model=cnn --step=0.1 --image_size=24
 

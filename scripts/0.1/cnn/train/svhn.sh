@@ -7,8 +7,8 @@
 
 source ~/tfp363/bin/activate
 
-python ~/DeepDream/experiment.py --total_batch_size=200 --mode=train --model=cnn --data_dir=/home/xuc/DeepDream/data/svhn/ --dataset=svhn --max_epochs=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/final/cnn/svhn
+python ~/DeepDream/experiment.py --total_batch_size=200 --mode=train --model=cnn --data_dir=/home/xuc/DeepDream/data/svhn/ --dataset=svhn --max_epochs=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/final_24_0.1/cnn/svhn --image_size=24
 
 # debug
-# python ~/DeepDream/experiment.py --total_batch_size=200 --mode=train --model=cnn --data_dir=/home/xuc/DeepDream/data/svhn/ --dataset=svhn --max_epochs=20 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/cnn/svhn
+# python ~/DeepDream/experiment.py --total_batch_size=200 --mode=train --model=cnn --data_dir=/home/xuc/DeepDream/data/svhn/ --dataset=svhn --max_epochs=20 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/cnn/svhn --image_size=24
 
