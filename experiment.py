@@ -65,7 +65,7 @@ tf.flags.DEFINE_string('summary_dir', './summary',
 tf.flags.DEFINE_integer('max_to_keep', None, 
                         'Maximum number of checkpoint files to keep.')
 tf.flags.DEFINE_integer('save_epochs', 10, 'How often to save checkpoints.')
-tf.flags.DEFINE_integer('max_epochs', 1, 
+tf.flags.DEFINE_integer('max_epochs', 10, 
                         'train, evaluate: maximum epochs to run;\n'
                         'others: number of different examples to visualization.')
 tf.flags.DEFINE_integer('iter_n', 1000,
@@ -74,11 +74,11 @@ tf.flags.DEFINE_integer('iter_n', 1000,
                         '[1, 2, 3, 4, 5, 6, 7, 8, 9,\n'
                         ' 10, 20, 40, 60, 80,\n'
                         ' 100, 200, 400, 600, 800, 1000]')
-tf.flags.DEFINE_string('step', '1.0',
+tf.flags.DEFINE_string('step', '0.1',
                        'Size of step for each iteration')
 tf.flags.DEFINE_string('threshold', '0.0',
                        'Those gradients after divided by the its standard deviations that larger than the threshold will be added')
-tf.flags.DEFINE_integer('image_size', None,
+tf.flags.DEFINE_integer('image_size', 24,
                        'Define the image size for dataset')
 
 models = {
