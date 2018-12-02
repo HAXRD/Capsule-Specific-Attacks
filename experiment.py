@@ -641,6 +641,7 @@ def run_glitch_session(iterator, specs, load_dir, summary_dir, kind):
         batched_images_t = tf.concat(batched_images_ts, 0)
         batched_labels_t = tf.concat(batched_labels_ts, 0)
 
+        images_t = batched_images_t
         logits_t = tf.argmax(logits10_t, axis=1, output_type=tf.int32)
         labels_t = tf.argmax(batched_labels_t, axis=1, output_type=tf.int32)
 
@@ -662,18 +663,19 @@ def run_glitch_session(iterator, specs, load_dir, summary_dir, kind):
                     batch_val = sess.run(batch_data)
                     feed_dict[batched_images_ts[i]] = batch_val['images']
                     feed_dict[batched_labels_ts[i]] = batch_val['labels']
-                    all_res_images.append(batch_val['images'])
 
-                accuracy, logits10, logits, labels, error = sess.run(
-                    [res_acc, logits10_t, logits_t, labels_t, error_t], 
+                accuracy, images, labels, logits, logits10, error = sess.run(
+                    [res_acc, images_t, labels_t, logits_t, logits10_t, error_t], 
                     feed_dict=feed_dict)
 
                 # wrongly predicted instances
                 error_indices = [i for i in range(len(error)) if error[i] == True]
 
-                all_res_labels.append(labels)
-                all_res_logits.append(logits)
-                all_res_logits10.append(logits10)
+                all_res_images.append(images[error_indices])
+                all_res_labels.append(labels[error_indices])
+                all_res_logits.append(logits[error_indices])
+                all_res_logits10.append(logits10[error_indices])
+
                 all_res_accuracy.append(accuracy)
             except tf.errors.OutOfRangeError:
                 break
@@ -685,7 +687,7 @@ def run_glitch_session(iterator, specs, load_dir, summary_dir, kind):
         all_res_logits_mat = np.concatenate(all_res_logits, axis=0)
         all_res_logits10_mat = np.concatenate(all_res_logits10, axis=0)
 
-        npzfname = os.path.join(summary_dir, 'wrong_predictions.npz')
+        npzfname = os.path.join(summary_dir, '%s_wrong_predictions.npz' % kind)
         np.savez(npzfname, images=all_res_images_mat, labels=all_res_labels_mat, logits=all_res_logits_mat, logits10=all_res_logits10_mat)
 
 def glitch(num_gpus, data_dir, dataset, model_type, total_batch_size, cropped_size, 
