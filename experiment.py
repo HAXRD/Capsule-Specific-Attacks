@@ -650,9 +650,11 @@ def run_glitch_session(iterator, specs, load_dir, summary_dir, kind):
         # get accuracy
         res_acc = tf.get_collection('accuracy')[0]
 
+        all_res_images = []
         all_res_labels = []
         all_res_logits = []
         all_res_logits10 = []
+        all_res_accuracy = []
         while True:
             try:
                 feed_dict = {}
@@ -660,6 +662,7 @@ def run_glitch_session(iterator, specs, load_dir, summary_dir, kind):
                     batch_val = sess.run(batch_data)
                     feed_dict[batched_images_ts[i]] = batch_val['images']
                     feed_dict[batched_labels_ts[i]] = batch_val['labels']
+                    all_res_images.append(batch_val['images'])
 
                 accuracy, logits10, logits, labels, error = sess.run(
                     [res_acc, logits10_t, logits_t, labels_t, error_t], 
@@ -671,15 +674,19 @@ def run_glitch_session(iterator, specs, load_dir, summary_dir, kind):
                 all_res_labels.append(labels)
                 all_res_logits.append(logits)
                 all_res_logits10.append(logits10)
+                all_res_accuracy.append(accuracy)
             except tf.errors.OutOfRangeError:
                 break
+        mean_acc = np.mean(all_res_accuracy)
+        print(mean_acc)
         # stack up
-        all_res_labels_mat = np.stack(all_res_labels)
-        all_res_logits_mat = np.stack(all_res_logits)
-        all_res_logits10_mat = np.stack(all_res_logits10)
+        all_res_images_mat = np.concatenate(all_res_images, axis=0)
+        all_res_labels_mat = np.concatenate(all_res_labels, axis=0)
+        all_res_logits_mat = np.concatenate(all_res_logits, axis=0)
+        all_res_logits10_mat = np.concatenate(all_res_logits10, axis=0)
 
         npzfname = os.path.join(summary_dir, 'wrong_predictions.npz')
-        np.savez(npzfname, labels=all_res_labels_mat, logits=all_res_logits_mat, logits10=all_res_logits10_mat)
+        np.savez(npzfname, images=all_res_images_mat, labels=all_res_labels_mat, logits=all_res_logits_mat, logits10=all_res_logits10_mat)
 
 def glitch(num_gpus, data_dir, dataset, model_type, total_batch_size, cropped_size, 
            summary_dir, max_epochs):
