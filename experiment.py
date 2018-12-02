@@ -678,7 +678,7 @@ def run_glitch_session(iterator, specs, load_dir, summary_dir, kind):
         all_res_logits_mat = np.stack(all_res_logits)
         all_res_logits10_mat = np.stack(all_res_logits10)
 
-        npzfname = os.path.join(write_dir, 'wrong_predictions.npz')
+        npzfname = os.path.join(summary_dir, 'wrong_predictions.npz')
         np.savez(npzfname, labels=all_res_labels_mat, logits=all_res_logits_mat, logits10=all_res_logits10_mat)
 
 def glitch(num_gpus, data_dir, dataset, model_type, total_batch_size, cropped_size, 
