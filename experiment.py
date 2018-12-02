@@ -629,30 +629,36 @@ def run_glitch_session(iterator, specs, load_dir, summary_dir, kind):
         batch_data = iterator.get_next()
         sess.run(iterator.initializer)
 
-        # get related tensors using tower_0
-        logits10_t = tf.get_collection('tower_0_visual')[-1]
-        labels10_t = tf.get_collection('tower_0_batched_labels')[0]
-        images_t = tf.get_collection('tower_0_batched_images')[0]
+        logits10_ts = []
+        batched_images_ts = []
+        batched_labels_ts = []
+        for i in range(specs['num_gpus']):
+            logits10_ts.append(tf.get_collection('tower_%d_visual' % i)[-1])
+            batched_images_ts.append(tf.get_collection('tower_%d_batched_images' % i)[0])
+            batched_labels_ts.append(tf.get_collection('tower_%d_batched_labels' % i)[0])
+        
+        logits10_t = tf.concat(logits10_ts, 0)
+        batched_images_t = tf.concat(batched_images_ts, 0)
+        batched_labels_t = tf.concat(batched_labels_ts, 0)
 
         logits_t = tf.argmax(logits10_t, axis=1, output_type=tf.int32)
-        labels_t = tf.argmax(labels10_t, axis=1, output_type=tf.int32)
+        labels_t = tf.argmax(batched_labels_t, axis=1, output_type=tf.int32)
 
         correct_t = tf.equal(logits_t, labels_t)
         error_t = tf.logical_not(correct_t)
-        
+
+        # get accuracy
+        res_acc = tf.get_collection('accuracy')[0]
 
         while True:
             try:
-                # get input batched_images and batched_labels
-                batch_val = sess.run(batch_data)
-                # create feed_dict
                 feed_dict = {}
-                feed_dict[images_t] = batch_val['images']
-                feed_dict[labels10_t] = batch_val['labels']
-                # get accuracy
-                res_acc = tf.get_collection('accuracy')[0]
+                for i in range(specs['num_gpus']):
+                    batch_val = sess.run(batch_data)
+                    feed_dict[batched_images_ts[i]] = batch_val['images']
+                    feed_dict[batched_labels_ts[i]] = batch_val['labels']
 
-                accuracy, logits10, labels, error = sess.run([res_acc, logits10_t, labels_t, error_t], feed_dict=feed_dict)
+                accuracy, logits10, labels, error = sess.run([res_acc, logits10_t, batched_labels_t, error_t], feed_dict=feed_dict)
 
                 # wrongly predicted instances
                 error_indices = [i for i in range(len(error)) if error[i] == True]
