@@ -597,6 +597,107 @@ def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size, cropped_
         # Call evaluate experiment
         run_evaluate_session(test_iterator, test_specs, load_dir, summary_dir, 'test')
 
+def run_glitch_session(iterator, specs, load_dir, summary_dir, kind):
+    """Find available checkpoints run predictions
+    
+    Args:
+        iterator: iterator, dataset iterator;
+        specs: dict, dictionary containing dataset specifications;
+        load_dir: str, directory that contains checkpoints;
+        summary_dir: str, directory to write summary;
+        kind: 'train' or 'test';
+    Raises:
+        ckpts not found
+    """
+    if not os.path.exists(summary_dir):
+        os.makedirs(summary_dir)
+
+    # section to write error predictions
+    """Load available checkpoints"""
+    latest_step, latest_ckpt_path, _ = find_latest_checkpoint_info(load_dir, False)
+    if latest_step == -1 or latest_ckpt_path == None:
+        raise ValueError('Checkpoint files not found!')
+    else:
+        print('Found ckpt at step {}'.format(latest_step))
+        latest_ckpt_meta_path = latest_ckpt_path + '.meta'
+
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+        # Import compute graph and restore variables
+        saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
+        saver.restore(sess, latest_ckpt_path)
+
+        batch_data = iterator.get_next()
+        sess.run(iterator.initializer)
+
+        # get related tensors using tower_0
+        logits10_t = tf.get_collection('tower_0_visual')[-1]
+        labels10_t = tf.get_collection('tower_0_batched_labels')[0]
+        images_t = tf.get_collection('tower_0_batched_images')[0]
+
+        logits_t = tf.argmax(logits10_t, axis=1, output_type=tf.int32)
+        labels_t = tf.argmax(labels10_t, axis=1, output_type=tf.int32)
+
+        correct_t = tf.equal(logits_t, labels_t)
+        error_t = tf.logical_not(correct_t)
+        
+
+        while True:
+            try:
+                # get input batched_images and batched_labels
+                batch_val = sess.run(batch_data)
+                # create feed_dict
+                feed_dict = {}
+                feed_dict[images_t] = batch_val['images']
+                feed_dict[labels10_t] = batch_val['labels']
+                # get accuracy
+                res_acc = tf.get_collection('accuracy')[0]
+
+                accuracy, logits10, labels, error = sess.run([res_acc, logits10_t, labels_t, error_t], feed_dict=feed_dict)
+
+                # wrongly predicted instances
+                error_indices = [i for i in range(len(error)) if error[i] == True]
+                print(labels[error_indices])
+                print(logits10[error_indices])
+
+            except tf.errors.OutOfRangeError:
+                break
+
+def glitch(num_gpus, data_dir, dataset, model_type, total_batch_size, cropped_size, 
+           summary_dir, max_epochs):
+    """Predict all the error predicted instances and store them into writen files.
+
+    Args:
+        num_gpus: number of GPUs to use.
+        data_dir: the directory containing the input data.
+        dataset: the name of the dataset for the experiments.
+        model_type: the name of the model architecture.
+        total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
+        cropped_size: image size after cropping.
+        summary_dir: the directory to write summaries and save the model.
+        max_epochs: maximum epochs to train.
+    """
+    load_dir = os.path.join(summary_dir, 'train')
+    summary_dir = os.path.join(summary_dir, 'glitch')
+    # Declare an empty model graph
+    with tf.Graph().as_default():
+        # Get train batched dataset and declare initializable iterator
+        train_distributed_dataset, train_specs = get_distributed_dataset(
+            total_batch_size, num_gpus, max_epochs, 
+            data_dir, dataset, cropped_size,
+            'train')
+        train_iterator = train_distributed_dataset.make_initializable_iterator()
+        # Call evaluate experiment 
+        run_glitch_session(train_iterator, train_specs, load_dir, summary_dir, 'train')
+    with tf.Graph().as_default():
+        # Get batched dataset and declare initializable iterator
+        test_distributed_dataset, test_specs = get_distributed_dataset(
+            total_batch_size, num_gpus, max_epochs,
+             data_dir, dataset, cropped_size,
+             'test')
+        test_iterator = test_distributed_dataset.make_initializable_iterator()
+        # Call evaluate experiment
+        run_glitch_session(test_iterator, test_specs, load_dir, summary_dir, 'test')
+
 def run_train_session(iterator, specs, # Dataset related
                       summary_dir, max_to_keep, max_epochs, # Checkpoint related
                       joined_result, save_epochs): # Model related
@@ -771,6 +872,9 @@ def main(_):
         train(hparams, FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size,
                        FLAGS.summary_dir, FLAGS.max_to_keep,
                        FLAGS.save_epochs, FLAGS.max_epochs)
+    elif FLAGS.mode == 'glitch':
+        glitch(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size, 
+              FLAGS.summary_dir, FLAGS.max_epochs)
     elif FLAGS.mode == 'evaluate':
         evaluate(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size,
                  FLAGS.summary_dir, FLAGS.max_epochs)
