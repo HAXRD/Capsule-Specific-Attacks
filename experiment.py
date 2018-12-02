@@ -650,6 +650,9 @@ def run_glitch_session(iterator, specs, load_dir, summary_dir, kind):
         # get accuracy
         res_acc = tf.get_collection('accuracy')[0]
 
+        all_res_labels = []
+        all_res_logits = []
+        all_res_logits10 = []
         while True:
             try:
                 feed_dict = {}
@@ -658,15 +661,25 @@ def run_glitch_session(iterator, specs, load_dir, summary_dir, kind):
                     feed_dict[batched_images_ts[i]] = batch_val['images']
                     feed_dict[batched_labels_ts[i]] = batch_val['labels']
 
-                accuracy, logits10, labels, error = sess.run([res_acc, logits10_t, batched_labels_t, error_t], feed_dict=feed_dict)
+                accuracy, logits10, logits, labels, error = sess.run(
+                    [res_acc, logits10_t, logits_t, labels_t, error_t], 
+                    feed_dict=feed_dict)
 
                 # wrongly predicted instances
                 error_indices = [i for i in range(len(error)) if error[i] == True]
-                print(labels[error_indices])
-                print(logits10[error_indices])
 
+                all_res_labels.append(labels)
+                all_res_logits.append(logits)
+                all_res_logits10.append(logits10)
             except tf.errors.OutOfRangeError:
                 break
+        # stack up
+        all_res_labels_mat = np.stack(all_res_labels)
+        all_res_logits_mat = np.stack(all_res_logits)
+        all_res_logits10_mat = np.stack(all_res_logits10)
+
+        npzfname = os.path.join(write_dir, 'wrong_predictions.npz')
+        np.savez(npzfname, labels=all_res_labels_mat, logits=all_res_logits_mat, logits10=all_res_logits10_mat)
 
 def glitch(num_gpus, data_dir, dataset, model_type, total_batch_size, cropped_size, 
            summary_dir, max_epochs):
