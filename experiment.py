@@ -683,6 +683,7 @@ def run_glitch_session(iterator, specs, load_dir, summary_dir, kind):
         print(mean_acc)
         # stack up
         all_res_images_mat = np.concatenate(all_res_images, axis=0)
+        all_res_images_mat = np.transpose(all_res_images_mat, [0, 2, 3, 1])
         all_res_labels_mat = np.concatenate(all_res_labels, axis=0)
         all_res_logits_mat = np.concatenate(all_res_logits, axis=0)
         all_res_logits10_mat = np.concatenate(all_res_logits10, axis=0)
