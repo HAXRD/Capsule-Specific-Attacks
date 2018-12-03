@@ -727,6 +727,83 @@ def glitch(num_gpus, data_dir, dataset, model_type, total_batch_size, cropped_si
         # Call evaluate experiment
         run_glitch_session(test_iterator, test_specs, load_dir, summary_dir, 'test')
 
+def run_boost_session(iterator, specs, load_dir, summary_dir, kind):
+    """Find available checkpoints run predictions
+    
+    Args:
+        iterator: iterator, dataset iterator;
+        specs: dict, dictionary containing dataset specifications;
+        load_dir: str, directory that contains checkpoints;
+        summary_dir: str, directory to write summary;
+        kind: 'train' or 'test';
+    Raises:
+        ckpts not found
+    """
+    if not os.path.exists(summary_dir):
+        os.makedirs(summary_dir)
+    
+    # section to predict reassembly
+    """Load available checkpoints"""
+    latest_step, latest_ckpt_path, _ = find_latest_checkpoint_info(load_dir, False)
+    if latest_step == -1 or latest_ckpt_path == None:
+        raise ValueError('Checkpoint files not found!')
+    else:
+        print('Found ckpt at step {}'.format(latest_step))
+        latest_ckpt_meta_path = latest_ckpt_path + '.meta'
+
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+        # Import compute graph and restore variables
+        saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
+        saver.restore(sess, latest_ckpt_path)
+
+        batch_data = iterator.get_next()
+        sess.run(iterator.initializer)
+
+        """Boost starts here"""
+        for i in range(specs['num_gpus']):
+            print(tf.get_collection('tower_%d_visual' % i))
+            print(tf.get_collection('tower_%d_logits' % i))
+
+    
+
+def boost(num_gpus, data_dir, dataset, model, total_batch_size, cropped_size,
+          summary_dir, max_epochs):
+    """Use a new approach to predict labels (reassemble method)
+    
+    Args:
+        num_gpus: number of GPUs to use.
+        data_dir: the directory containing the input data.
+        dataset: the name of the dataset for the experiments.
+        model_type: the name of the model architecture.
+        total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
+        cropped_size: image size after cropping.
+        summary_dir: the directory to write summaries and save the model.
+        max_epochs: maximum epochs to train.
+    """
+    load_dir = os.path.join(summary_dir, 'train')
+    summary_dir = os.path.join(summary_dir, 'boost')
+    # Declare an empty model graph
+    with tf.Graph().as_default():
+        # Get train batched dataset and declare initializable iterator
+        train_distributed_dataset, train_specs = get_distributed_dataset(
+            total_batch_size, num_gpus, max_epochs, 
+            data_dir, dataset, cropped_size,
+            'train')
+        train_iterator = train_distributed_dataset.make_initializable_iterator()
+        # Call evaluate experiment 
+        run_boost_session(train_iterator, train_specs, load_dir, summary_dir, 'train')
+    with tf.Graph().as_default():
+        # Get batched dataset and declare initializable iterator
+        test_distributed_dataset, test_specs = get_distributed_dataset(
+            total_batch_size, num_gpus, max_epochs,
+             data_dir, dataset, cropped_size,
+             'test')
+        test_iterator = test_distributed_dataset.make_initializable_iterator()
+        # Call evaluate experiment
+        run_boost_session(test_iterator, test_specs, load_dir, summary_dir, 'test')
+
+    pass
+
 def run_train_session(iterator, specs, # Dataset related
                       summary_dir, max_to_keep, max_epochs, # Checkpoint related
                       joined_result, save_epochs): # Model related
@@ -903,6 +980,9 @@ def main(_):
                        FLAGS.save_epochs, FLAGS.max_epochs)
     elif FLAGS.mode == 'glitch':
         glitch(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size, 
+              FLAGS.summary_dir, FLAGS.max_epochs)
+    elif FLAGS.mode == 'boost':
+        boost(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size,
               FLAGS.summary_dir, FLAGS.max_epochs)
     elif FLAGS.mode == 'evaluate':
         evaluate(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size,
