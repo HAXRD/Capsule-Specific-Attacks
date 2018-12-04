@@ -109,29 +109,42 @@ def _update_routing(tower_idx, votes, biases, logit_shape, num_ranks, in_dim, ou
         tile_shape[1] = in_dim
         act_replicated = tf.tile(act_3d, tile_shape)
         distances = tf.reduce_sum(votes * act_replicated, axis=3)
-        logits.write(i+1, logit + distances)
+        logits = logits.write(i+1, logit + distances)
         return (i + 1, logits, activations)
 
     activations = tf.TensorArray(
         dtype=tf.float32, size=num_routing, clear_after_read=False)
     logits = tf.TensorArray(
         dtype=tf.float32, size=num_routing+1, clear_after_read=False)
-    logits.write(0, tf.fill(logit_shape, 0.0))
+    logits = logits.write(0, tf.fill(logit_shape, 0.0))
     i = tf.constant(0, dtype=tf.int32)
 
+    _, logits, activations = tf.while_loop(
+        lambda i, logits, activations: i < num_routing - 1,
+        _body, 
+        loop_vars=[i, logits, activations],
+        swap_memory=True)
+
+    # do it manually
+    logit = logits.read(num_routing - 1)
+    if leaky:
+        route = _leaky_routing(logit, out_dim)
+    else:
+        route = tf.nn.softmax(logit, axis=2) # (?, 512, 10)
+    """Normal route section"""
+    preact_unrolled = route * votes_trans
+    preact_trans = tf.transpose(preact_unrolled, r_t_shape)
+    preactivate = tf.reduce_sum(preact_trans, axis=1) + biases
+    activation = _squash(preactivate)
+    activations = activations.write(num_routing - 1, activation)
+    act_3d = tf.expand_dims(activation, 1)
+    tile_shape = np.ones(num_ranks, dtype=np.int32).tolist()
+    tile_shape[1] = in_dim
+    act_replicated = tf.tile(act_3d, tile_shape)
+    distances = tf.reduce_sum(votes * act_replicated, axis=3)
+    logits = logits.write(num_routing, logit + distances)
+
     if reassemble:
-        _, logits, activations = tf.while_loop(
-            lambda i, logits, activations: i < num_routing - 1,
-            _body, 
-            loop_vars=[i, logits, activations],
-            swap_memory=True)
-        
-        # do it manually
-        logit = logits.read(num_routing - 1)
-        if leaky:
-            route = _leaky_routing(logit, out_dim)
-        else:
-            route = tf.nn.softmax(logit, axis=2) # (?, 512, 10)
         """Boost section"""
         # transpose route to make compare easier
         route_trans = tf.transpose(route, [0, 2, 1])
@@ -146,24 +159,6 @@ def _update_routing(tower_idx, votes, biases, logit_shape, num_ranks, in_dim, ou
             preactivate = tf.reduce_sum(preact_trans, axis=1) + biases
             activation = _squash(preactivate)
             tf.add_to_collection('tower_%d_boost_acts' % tower_idx, activation) # total 10
-        """Normal route section"""
-        preact_unrolled = route * votes_trans
-        preact_trans = tf.transpose(preact_unrolled, r_t_shape)
-        preactivate = tf.reduce_sum(preact_trans, axis=1) + biases
-        activation = _squash(preactivate)
-        activations = activations.write(num_routing - 1, activation)
-        act_3d = tf.expand_dims(activation, 1)
-        tile_shape = np.ones(num_ranks, dtype=np.int32).tolist()
-        tile_shape[1] = in_dim
-        act_replicated = tf.tile(act_3d, tile_shape)
-        distances = tf.reduce_sum(votes * act_replicated, axis=3)
-        logits.write(num_routing, logit + distances)
-    else:
-        _, logits, activations = tf.while_loop(
-            lambda i, logits, activations: i < num_routing,
-            _body, 
-            loop_vars=[i, logits, activations],
-            swap_memory=True)
 
     """visual""" 
     for i in range(num_routing):
