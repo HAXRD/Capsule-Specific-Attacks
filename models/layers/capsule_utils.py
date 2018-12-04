@@ -149,8 +149,11 @@ def _update_routing(tower_idx, votes, biases, logit_shape, num_ranks, in_dim, ou
             split_shape = tf.shape(split) # (?, 1, 512)
             valid_cap_indices = tf.less_equal(split, tf.fill(split_shape, 0.5)) # threshold here
             valid_cap_indices_sq = tf.squeeze(valid_cap_indices)
-            valid_cap_multiplier = tf.cast(valid_cap_indices_sq, tf.float32) # (?, 512) 1.0 or 0.0, it will broadcast
-            preact_unrolled = valid_cap_multiplier * route * votes_trans
+            valid_cap_multiplier = tf.cast(valid_cap_indices_sq, tf.float32) # (?, 512) 1.0 or 0.0
+            valid_cap_multiplier_tiled = tf.tile(
+                tf.expand_dims(valid_cap_multiplier, -1), 
+                [1, 1, 10])
+            preact_unrolled = valid_cap_multiplier_tiled * route * votes_trans
             preact_trans = tf.transpose(preact_unrolled, r_t_shape)
             preactivate = tf.reduce_sum(preact_trans, axis=1) + biases
             activation = _squash(preactivate)
