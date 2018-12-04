@@ -762,7 +762,54 @@ def run_boost_session(iterator, specs, load_dir, summary_dir, kind):
         from pprint import pprint
         """Boost starts here"""
         for i in range(specs['num_gpus']):
-            pprint(tf.get_collection('tower_%d_boost_acts' % tower_idx))
+            pprint(tf.get_collection('tower_%d_boost_acts' % i))
+
+        reassemble_votes_list = []
+        batched_images_ts = []
+        batched_labels_ts = []
+        for i in range(specs['num_gpus']):
+            reassemble_votes_list.append(tf.get_collection('tower_%d_boost_acts' % i))
+            batched_images_ts.append(tf.get_collection('tower_%d_batched_images' % i)[0])
+            batched_labels_ts.append(tf.get_collection('tower_%d_batched_labels' % i)[0])
+        # concat
+        removed_effect_votes = []
+        for i in range(specs['num_classes']):
+            removed_effect_votes.append(
+                tf.concat([reassemble_votes_list[j][i] for j in range(specs['num_gpus'])], 0))
+        batched_images_t = tf.concat(batched_images_ts, 0)
+        batched_labels_t = tf.concat(batched_labels_ts, 0)
+        batched_assemble_logits10_t = tf.add_n(removed_effect_votes)
+
+        images_t = batched_images_t
+        labels_t = tf.argmax(batched_labels_t, axis=1, output_type=tf.int32)
+        logits_t = tf.argmax(batched_assemble_logits10_t, axis=1, output_type=tf.int32)
+        
+        correct_t = tf.cast(tf.equal(logits_t, labels_t), tf.float32)
+
+        reassemble_acc_t = tf.reduce_mean(correct_t)
+        acc_t = tf.get_collection('accuracy')[0]
+
+        all_reassemble_accuracy = []
+        all_accuracy = []
+        while True:
+            try:
+                feed_dict = {}
+                for i in range(specs['num_gpus']):
+                    batch_val = sess.run(batch_data)
+                    feed_dict[batched_images_ts[i]] = batch_val['images']
+                    feed_dict[batched_labels_ts[i]] = batch_val['labels']
+                
+                reassemble_accuracy, accuracy = sess.run([reassemble_acc_t, acc_t], feed_dict=feed_dict)
+
+                all_reassemble_accuracy.append(reassemble_accuracy)
+                all_accuracy.append(accuracy)
+                print('reassemble:normal = ({}, {})'.format(reassemble_accuracy, accuracy))
+            except tf.errors.OutOfRangeError:
+                break
+        mean_assemble_acc = np.mean(all_reassemble_accuracy)
+        mean_acc = np.mean(all_accuracy)
+        print('='*20)
+        print('reassemble:normal = ({}, {})'.format(reassemble_accuracy, accuracy))
 
 def boost(num_gpus, data_dir, dataset, model, total_batch_size, cropped_size,
           summary_dir, max_epochs):
