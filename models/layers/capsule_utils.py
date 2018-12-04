@@ -154,7 +154,8 @@ def _update_routing(tower_idx, votes, biases, logit_shape, num_ranks, in_dim, ou
             preact_trans = tf.transpose(preact_unrolled, r_t_shape)
             preactivate = tf.reduce_sum(preact_trans, axis=1) + biases
             activation = _squash(preactivate)
-            tf.add_to_collection('tower_%d_boost_acts' % tower_idx, activation) # total 10
+            act_norm = tf.norm(activation, axis=-1, name='act_norm')
+            tf.add_to_collection('tower_%d_boost_acts' % tower_idx, act_norm) # total 10
 
     """visual""" 
     for i in range(num_routing):
