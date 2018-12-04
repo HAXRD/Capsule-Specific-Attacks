@@ -759,12 +759,10 @@ def run_boost_session(iterator, specs, load_dir, summary_dir, kind):
         batch_data = iterator.get_next()
         sess.run(iterator.initializer)
 
+        from pprint import pprint
         """Boost starts here"""
         for i in range(specs['num_gpus']):
-            print(tf.get_collection('tower_%d_visual' % i))
-            print(tf.get_collection('tower_%d_logits' % i))
-
-    
+            pprint(tf.get_collection('tower_%d_boost_acts' % tower_idx))
 
 def boost(num_gpus, data_dir, dataset, model, total_batch_size, cropped_size,
           summary_dir, max_epochs):

@@ -62,7 +62,7 @@ def _leaky_routing(logits, out_dim):
     return tf.split(leaky_routing, [1, out_dim], 2)[1]
 
 def _update_routing(tower_idx, votes, biases, logit_shape, num_ranks, in_dim, out_dim,
-                    leaky, num_routing):
+                    leaky, num_routing, reassemble=False):
     """Sums over scaled votes and applies squash to compute the activations.
 
     Iteratively updates routing logits (scales) based on the similarity between
@@ -80,6 +80,7 @@ def _update_routing(tower_idx, votes, biases, logit_shape, num_ranks, in_dim, ou
         out_dim: scalar, number of capsule types of output.
         leaky: boolean, whether to use leaky routing.
         num_routing: scalar, number of routing iterations.
+        reassemble: boolean, whether to use reassemble method.
     Returns:
         The activation tensor of the output layer after `num_routing` iterations.
     """
@@ -118,16 +119,55 @@ def _update_routing(tower_idx, votes, biases, logit_shape, num_ranks, in_dim, ou
     logits.write(0, tf.fill(logit_shape, 0.0))
     i = tf.constant(0, dtype=tf.int32)
 
-    _, logits, activations = tf.while_loop(
-        lambda i, logits, activations: i < num_routing,
-        _body, 
-        loop_vars=[i, logits, activations],
-        swap_memory=True)
+    if reassemble:
+        _, logits, activations = tf.while_loop(
+            lambda i, logits, activations: i < num_routing - 1,
+            _body, 
+            loop_vars=[i, logits, activations],
+            swap_memory=True)
+        
+        # do it manually
+        logit = logits.read(num_routing - 1)
+        if leaky:
+            route = _leaky_routing(logit, out_dim)
+        else:
+            route = tf.nn.softmax(logit, axis=2) # (?, 512, 10)
+        """Boost section"""
+        # transpose route to make compare easier
+        route_trans = tf.transpose(route, [0, 2, 1])
+        ten_splits = tf.split(route_trans, num_or_size_splits=10, axis=1)
+        for split in ten_splits:
+            split_shape = tf.shape(split) # (?, 1, 512)
+            valid_cap_indices = tf.less_equal(split, tf.fill(split_shape, 0.5)) # threshold here
+            valid_cap_indices_sq = tf.squeeze(valid_cap_indices)
+            valid_cap_multiplier = tf.cast(valid_cap_indices_sq, tf.float32) # (?, 512) 1.0 or 0.0, it will broadcast
+            preact_unrolled = valid_cap_multiplier * route * votes_trans
+            preact_trans = tf.transpose(preact_unrolled, r_t_shape)
+            preactivate = tf.reduce_sum(preact_trans, axis=1) + biases
+            activation = _squash(preactivate)
+            tf.add_to_collection('tower_%d_boost_acts' % tower_idx, activation) # total 10
+        """Normal route section"""
+        preact_unrolled = route * votes_trans
+        preact_trans = tf.transpose(preact_unrolled, r_t_shape)
+        preactivate = tf.reduce_sum(preact_trans, axis=1) + biases
+        activation = _squash(preactivate)
+        activations = activations.write(num_routing - 1, activation)
+        act_3d = tf.expand_dims(activation, 1)
+        tile_shape = np.ones(num_ranks, dtype=np.int32).tolist()
+        tile_shape[1] = in_dim
+        act_replicated = tf.tile(act_3d, tile_shape)
+        distances = tf.reduce_sum(votes * act_replicated, axis=3)
+        logits.write(num_routing, logit + distances)
+    else:
+        _, logits, activations = tf.while_loop(
+            lambda i, logits, activations: i < num_routing,
+            _body, 
+            loop_vars=[i, logits, activations],
+            swap_memory=True)
 
     """visual""" 
     for i in range(num_routing):
         tf.add_to_collection('tower_%d_visual' % tower_idx, activations.read(i))
-        tf.add_to_collection('tower_%d_logits' % tower_idx, activations.read(i+1))
     return activations.read(num_routing - 1)
     
 

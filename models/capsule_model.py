@@ -112,7 +112,8 @@ class CapsuleModel(model.Model):
             out_atoms=16, 
             layer_name='capsule2',
             num_routing=self._hparams.routing,
-            leaky=self._hparams.leaky)
+            leaky=self._hparams.leaky,
+            reassemble=True)
 
     def build_replica(self, tower_idx):
         """Adds a replica graph ops.
