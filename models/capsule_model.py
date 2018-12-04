@@ -95,6 +95,7 @@ class CapsuleModel(model.Model):
             kernel_size=9,
             stride=2,
             padding=self._hparams.padding,
+            reassemble=False,
             num_routing=1,
             leaky=self._hparams.leaky)
         capsule1_atom_last = tf.transpose(capsule1, [0, 1, 3, 4, 2])
@@ -111,9 +112,9 @@ class CapsuleModel(model.Model):
             out_dim=num_classes, 
             out_atoms=16, 
             layer_name='capsule2',
+            reassemble=True,
             num_routing=self._hparams.routing,
-            leaky=self._hparams.leaky,
-            reassemble=True)
+            leaky=self._hparams.leaky)
 
     def build_replica(self, tower_idx):
         """Adds a replica graph ops.

@@ -61,8 +61,8 @@ def _leaky_routing(logits, out_dim):
     leaky_routing = tf.nn.softmax(leaky_logits, axis=2)
     return tf.split(leaky_routing, [1, out_dim], 2)[1]
 
-def _update_routing(tower_idx, votes, biases, logit_shape, num_ranks, in_dim, out_dim,
-                    leaky, num_routing, reassemble=False):
+def _update_routing(tower_idx, votes, biases, logit_shape, num_ranks, in_dim, out_dim, reassemble, 
+                    leaky, num_routing):
     """Sums over scaled votes and applies squash to compute the activations.
 
     Iteratively updates routing logits (scales) based on the similarity between
@@ -223,7 +223,9 @@ def _depthwise_conv3d(tower_idx, in_tensor, in_dim, in_atoms,
         
 def conv_slim_capsule(tower_idx, in_tensor, in_dim, in_atoms,
                       out_dim, out_atoms, layer_name,
-                      kernel_size=5, stride=2, padding='SAME', **routing_args):
+                      kernel_size=5, stride=2, padding='SAME', 
+                      reassemble=False,
+                      **routing_args):
     """Builds a slim convolutional capsule layer.
 
     This layer performs 2D convolution given 5R input tensor of shape
@@ -281,11 +283,13 @@ def conv_slim_capsule(tower_idx, in_tensor, in_dim, in_atoms,
                 num_ranks=6, 
                 in_dim=in_dim, 
                 out_dim=out_dim,
+                reassemble=reassemble,
                 **routing_args)
         return activations
 
 def capsule(tower_idx, in_tensor, in_dim, in_atoms,
             out_dim, out_atoms, layer_name,
+            reassemble,
             **routing_args):
     """Builds a fully connected capsule layer.
 
@@ -340,6 +344,7 @@ def capsule(tower_idx, in_tensor, in_dim, in_atoms,
                 num_ranks=4, 
                 in_dim=in_dim, 
                 out_dim=out_dim,
+                reassemble=reassemble,
                 **routing_args)
         
         return activations
