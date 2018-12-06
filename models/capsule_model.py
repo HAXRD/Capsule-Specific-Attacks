@@ -173,6 +173,10 @@ class CapsuleModel(model.Model):
         batched_labels = tf.placeholder(tf.int32,
             shape=[None, num_classes], name='batched_labels')
         tf.add_to_collection('tower_%d_batched_labels' % tower_idx, batched_labels)
+        
+        # declare the threshold placeholder for ensemble evaluation
+        threshold = tf.placeholder(tf.float32, name='threshold')
+        tf.add_to_collection('tower_%d_batched_threshold' % tower_idx, threshold)
 
         # Reconstruction
         remake = None

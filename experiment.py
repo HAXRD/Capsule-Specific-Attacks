@@ -14,17 +14,22 @@
 # limitations under the License.
 # ==============================================================================
 
-"""Framework for training and evaluating models."""
+"""Framework for
+1. train
+2. evaluate (compare capsule norms)
+3. explore norm aspect
+4. explore direction aspect
+5. ensemble evaluate (ensemble results from deleted capsule norms)
+"""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
-import os
-import sys
-import time
-import re
-import glob
+import os 
+import sys 
+import time 
+import re 
+from glob import glob
+from pprint import pprint
 import numpy as np 
 import tensorflow as tf 
 
@@ -33,155 +38,95 @@ from input_data.fashion_mnist import fashion_mnist_input, fashion_mnist_dream_in
 from input_data.svhn import svhn_input, svhn_dream_input
 from input_data.cifar10 import cifar10_input, cifar10_dream_input
 from input_data.noise import noise_dream_input
+
 from models import cnn_model
 from models import capsule_model
+
 from grad import naive_max_norm, max_norm_diff, naive_max_caps_dim, max_caps_dim_diff, utils
 
-FLAGS = tf.flags.FLAGS
+from config import FLAGS, default_hparams
 
-tf.flags.DEFINE_integer('num_gpus', 2,
-                        'Number of GPUs to use.')
-tf.flags.DEFINE_string('mode', 'train',
-                       'train: train the model;\n'
-                       'evaluate: evaluate the model for both training and testing set;\n'
-                       'Capsule Norm Aspect: \n'
-                       '    naive_max_norm, max_norm_diff, noise_naive_max_norm, noise_max_norm_diff;\n'
-                       'Capsule Direction Aspect:\n'
-                       '    naive_max_caps_dim, max_caps_dim_diff, noise_naive_max_caps_dim, noise_max_caps_dim_diff.')
-tf.flags.DEFINE_string('hparams_override', None,
-                        '--hparams_override=num_prime_capsules=64,padding=SAME,leaky=true,remake=false')
-tf.flags.DEFINE_string('data_dir', None, 
-                       'The data directory.')
-tf.flags.DEFINE_string('dataset', 'mnist',
-                       'The dataset to use for the experiment.\n'
-                       'mnist, fashion_mnist, svhn, cifar10.')
-tf.flags.DEFINE_string('model', 'cap',
-                       'The model to use for the experiment.\n'
-                       'cap or cnn')
-tf.flags.DEFINE_integer('total_batch_size', 1, 
-                        'Total batch size.')
-tf.flags.DEFINE_string('summary_dir', './summary',
-                       'Main directory for the experiments.')
-tf.flags.DEFINE_integer('max_to_keep', None, 
-                        'Maximum number of checkpoint files to keep.')
-tf.flags.DEFINE_integer('save_epochs', 10, 'How often to save checkpoints.')
-tf.flags.DEFINE_integer('max_epochs', 10, 
-                        'train, evaluate: maximum epochs to run;\n'
-                        'others: number of different examples to visualization.')
-tf.flags.DEFINE_integer('iter_n', 1000,
-                        'Number of iteration to run the gradient ascent\n'
-                        'the code only record any iterations in\n'
-                        '[1, 2, 3, 4, 5, 6, 7, 8, 9,\n'
-                        ' 10, 20, 40, 60, 80,\n'
-                        ' 100, 200, 400, 600, 800, 1000]')
-tf.flags.DEFINE_string('step', '0.1',
-                       'Size of step for each iteration')
-tf.flags.DEFINE_string('threshold', '0.0',
-                       'Those gradients after divided by the its standard deviations that larger than the threshold will be added')
-tf.flags.DEFINE_integer('image_size', 24,
-                       'Define the image size for dataset')
-
-models = {
+MODELS = {
     'cnn': cnn_model.CNNModel,
     'cap': capsule_model.CapsuleModel
 }
 
-vis_grad_computer = {
-    'naive_max_norm': naive_max_norm, 
-    'max_norm_diff': max_norm_diff, 
+INPUTS = {
+    'mnist': mnist_input,
+    'fashion_mnist': fashion_mnist_input,
+    'svhn': svhn_input,
+    'cifar10': cifar10_input
+}
+
+DREAM_INPUTS = {
+    'mnist': mnist_dream_inputs,
+    'fashion_mnist': fashion_mnist_dream_input,
+    'svhn': svhn_dream_input,
+    'cifar10': cifar10_dream_input
+}
+
+VIS_GRAD_COMPUTER = {
+    'naive_max_norm': naive_max_norm,
+    'max_norm_diff': max_norm_diff,
     'naive_max_caps_dim': naive_max_caps_dim,
     'max_caps_dim_diff': max_caps_dim_diff
 }
+
+METHOD_TYPES = ['normal', 'ensemble']
 
 NORM_ASPECT_TYPES = ['naive_max_norm', 'max_norm_diff']
 
 DIRECTION_ASPECT_TYPES = ['naive_max_caps_dim', 'max_caps_dim_diff']
 
-def get_distributed_dataset(total_batch_size, num_gpus, 
-                            max_epochs, data_dir, dataset, cropped_size,
+def get_distributed_dataset(total_batch_size, num_gpus,
+                            max_epochs, data_dir, dataset, image_size,
                             split='default', n_repeats=None):
-    """Reads the input data from input_data functions.
+    """Reads the input data using 'input_data' functions.
 
     For 'train' and 'test' splits,
-        given `num_gpus` GPUs and `total_batch_size`, assert 
-        `total_batch_size` % `num_gpus` == 0, we distribute 
-        those `total_batch_size` into `num_gpus` partitions,
-        denoted as `batch_size`, otherwise raise error.
-    
+        given {num_gpus} GPUs and {total_batch_size}, we distribute
+        those {total_batch_size} into {num_gpus} partitions,
+        denoted as {batch_size}.
+
     For 'noise' and 'dream' splits,
-        check if `total_batch_size` ≡ 1, otherwise raise 'ValueError'.
-        In this case, we will duplicate every example `num_gpus` times
-        so that when we pass the examples into the multi-tower models,
-        it is calculating and averaging the gradients of the same images.
+        check if {total_batch_size} ≡ 1, otherwise raise 'ValueError'.
+        In this case, we will duplicate every example {num_gpus} times 
+        so that when we pass the examples into multi-tower models, it is 
+        calculating and averaging the gradients of the same images.
 
     Args:
         total_batch_size: total number of data entries over all towers;
         num_gpus: number of GPUs available to use;
         max_epochs: for 'train' split, this parameter decides the number of 
             epochs to train for the model; for 'test' split, this parameter
-            should ≡ 1 since we are not doing resemble evalutions in this project;
+            should ≡ 1.
         data_dir: the directory containing the data;
-        dataset: the name of dataset;
-        cropped_size: image size after cropping;
+        dataset: the name of the dataset;
+        image_size: image size after cropping;
         split: 'train', 'test', 'noise', 'dream';
-        n_repeats('noise' and 'dream'): the number of repeats of the same image.
+        n_repeats ('noise' and 'dream'): the number of repeats of the same image.
     Returns:
-        batched_dataset: Dataset object.
+        batched_dataset: dataset object;
         specs: dataset specifications.
     """
+    assert dataset in ['mnist', 'fashion_mnist', 'svhn', 'cifar10']
     with tf.device('/gpu:0'):
-        if split == 'train' or split == 'test':
+        if split in ['train', 'test']:
             assert total_batch_size % num_gpus == 0
-            if dataset == 'mnist':
-                distributed_dataset, specs = mnist_input.inputs(
-                    total_batch_size, num_gpus, max_epochs, cropped_size,
-                    data_dir, split)
-            elif dataset == 'fashion_mnist': 
-                distributed_dataset, specs = fashion_mnist_input.inputs(
-                    total_batch_size, num_gpus, max_epochs, cropped_size,
-                    data_dir, split)
-            elif dataset == 'svhn': 
-                distributed_dataset, specs = svhn_input.inputs(
-                    total_batch_size, num_gpus, max_epochs, cropped_size,
-                    data_dir, split)
-            elif dataset == 'cifar10':
-                distributed_dataset, specs = cifar10_input.inputs(
-                    total_batch_size, num_gpus, max_epochs, cropped_size,
-                    data_dir, split)
-            # the data will be distributed over {num_gpus} GPUs.
+            distributed_dataset, specs = INPUTS[dataset].inputs(
+                total_batch_size, num_gpus, max_epochs, image_size, 
+                data_dir, split)
             return distributed_dataset, specs
         elif split == 'noise':
-            if dataset == 'mnist':
-                batched_dataset, specs = noise_dream_input.inputs(
-                    'noise', 1, max_epochs, n_repeats, cropped_size)
-            elif dataset == 'fashion_mnist': 
-                batched_dataset, specs = noise_dream_input.inputs(
-                    'noise', 1, max_epochs, n_repeats, cropped_size)
-            elif dataset == 'svhn':
-                batched_dataset, specs = noise_dream_input.inputs(
-                    'noise', 3, max_epochs, n_repeats, cropped_size)
-            elif dataset == 'cifar10': 
-                batched_dataset, specs = noise_dream_input.inputs(
-                    'noise', 3, max_epochs, n_repeats, cropped_size)
-            # the data will only have batch_size=1 and not be distributed over {num_gpus} GPUs.
+            batched_dataset, specs = noise_dream_input.inputs(
+                'noise', 1, max_epochs, n_repeats, image_size)
             return batched_dataset, specs
         elif split == 'dream':
-            if dataset == 'mnist':
-                batched_dataset, specs = mnist_dream_inputs.inputs(
-                    'train', data_dir, max_epochs, n_repeats, cropped_size)
-            elif dataset == 'fashion_mnist': 
-                batched_dataset, specs = fashion_mnist_dream_input.inputs(
-                    'train', data_dir, max_epochs, n_repeats, cropped_size)
-            elif dataset == 'svhn':
-                batched_dataset, specs = svhn_dream_input.inputs(
-                    'train', data_dir, max_epochs, n_repeats, cropped_size)
-            elif dataset == 'cifar10': 
-                batched_dataset, specs = cifar10_dream_input.inputs(
-                    'train', data_dir, max_epochs, n_repeats, cropped_size)
-            # the data will only have batch_size=1 and not be distributed over {num_gpus} GPUs.
+            batched_dataset, specs = DREAM_INPUTS[dataset].inputs(
+                'train', data_dir, max_epochs, n_repeats, image_size)
             return batched_dataset, specs
         else:
-            raise ValueError('')
+            raise ValueError()
 
 def find_event_file_path(load_dir):
     """Finds the event file.
@@ -231,652 +176,32 @@ def extract_step(path):
     file_name = os.path.basename(path)
     return int(file_name.split('-')[-1])
 
-def _write_specs_file(write_dir, aspect_type, dataset, total_batch_size, 
-                     max_epochs, iter_n, step, threshold):
-    write_dir = os.path.join(write_dir, 'max_ep{}-iter_n{}-step{}-th{}'.format(
-        max_epochs, iter_n, step, threshold))
-    if not os.path.exists(write_dir):
-        os.makedirs(write_dir)
-    with open(os.path.join(write_dir, 'specs.txt'), 'w+') as f:
-        f.write('explore type: {};\n'.format(aspect_type))
-        f.write('dataset: {};\n'.format(dataset))
-        f.write('total_batch_size: {};\n'.format(total_batch_size))
-        f.write('max_epochs: {};\n'.format(max_epochs))
-        f.write('iter_n: {};\n'.format(iter_n))
-        f.write('step: {};\n'.format(step))
-        f.write('threshold: {};\n'.format(threshold))
-    return write_dir
-
-def run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, cropped_size,
-                         iter_n, step, threshold,
-                         load_dir, summary_dir, aspect_type):
-    """Start norm aspect exploration. Producing results to summary_dir
+def run_train_session(iterator, specs, 
+                      summary_dir, max_epochs,
+                      joined_result, save_epochs):
+    """Starts a session, train the model, write summary into an event file,
+    and save the whole graph one time and variable every {save_epochs} epochs.
     
     Args:
-        num_gpus: number of GPUs available to use.
-        total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
-        max_epochs: maximum epochs to train.
-        data_dir: the directory containing the input data.
-        dataset: the name of the dataset for the experiments.
-        cropped_size: image size after cropping.
-        iter_n: number of iterations to add gradients to original image.
-        step: step size of each iteration of gradient ascent to mutliply.
-        threshold: any gradients less than this value will not be added to the original image.
-        load_dir: the directory to load files.
-        summary_dir: the directory to write files.
-        aspect_type: 'naive_max_caps_dim'
-    """
-    # Write specs file
-    write_dir = _write_specs_file(summary_dir, aspect_type, dataset, total_batch_size,
-                                  max_epochs, iter_n, step, threshold)
-    
-    # Find out to feed in noise of data
-    if 'noise_' in aspect_type:
-        aspect_type = aspect_type[6:]
-        split = 'noise'
-    else:
-        split = 'dream'
-
-    # Find latest checkpoint information
-    latest_step, latest_ckpt_path, _ = find_latest_checkpoint_info(load_dir)
-    if latest_step == -1 or latest_ckpt_path == None:
-        raise ValueError('Checkpoint files not found!')
-    else:
-        latest_ckpt_meta_path = latest_ckpt_path + '.meta'
-    
-    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-        # Import compute graph and restore variables
-        saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
-        saver.restore(sess, latest_ckpt_path)
-
-        # Compute the gradients
-        result_grads, batched_images, caps_norms_tensor= vis_grad_computer[aspect_type].compute_grads(0)
-        n_repeats = 16 # 16 dimensional vector
-        print('Number of gradients computed: ', len(result_grads))
-
-        # Get batched dataset and specs
-        batched_dataset, specs = get_distributed_dataset(
-            total_batch_size, num_gpus, max_epochs, 
-            data_dir, dataset, cropped_size,
-            split=split, n_repeats=n_repeats)
-        iterator = batched_dataset.make_initializable_iterator()
-        batch_data = iterator.get_next()
-        sess.run(iterator.initializer)
-
-        # Suppose now we feed in image with lbl0 = '0',
-        # and only run experiment on maximizing one specific 
-        # dimension of capsule '0'.
-        num_class_loop = specs['num_classes'] 
-        for i in range(max_epochs): # instance number 
-            for j in range(num_class_loop): # j is the index of the target label capsule
-                for k in range(n_repeats): # 16 dimensional wise loop
-                    try:
-                        # Get batched values
-                        batch_val = sess.run(batch_data)
-
-                        # Run gradient ascent {iter_n} iterations with step_size={step}
-                        # and threshold to get gradient ascended stacked image tensor
-                        # (iter_n, 1, 24, 24) and (iter_n, 3, 24, 24)
-                        img0 = batch_val['images']
-                        iter_n_recorded, ga_img_list = utils.run_gradient_ascent(
-                            result_grads[j*num_class_loop+k], img0, batched_images, sess, iter_n, step, threshold)
-                        
-                        pred_class_prob_list = [] # list of (predicted_class, probabilities of predicted class)s
-
-                        for img in ga_img_list:
-                            pred = sess.run(caps_norms_tensor, feed_dict={batched_images: img}) # (1, 10)
-                            pred = np.reshape(pred, -1) # (10,)
-
-                            pred_class_prob_list.append(pred)
-                        
-                        ga_iter_matr = np.array(iter_n_recorded)
-                        ga_img_matr = np.stack(ga_img_list, axis=0)
-                        pred_class_prob_matr = np.stack(pred_class_prob_list)
-
-                        # save to npz file
-                        npzfname = 'instance_{}-cap_{}-dim_{}.npz'.format(i, j, k)
-                        npzfname = os.path.join(write_dir, npzfname)
-                        np.savez(npzfname, iters=ga_iter_matr, images=ga_img_matr, pred=pred_class_prob_matr)
-
-                        print('{0} {1} total:class:gradient = {2:.1f}% ~ {3:.1f}% ~ {4:.1f}%'.format(
-                            ' '*5, '-'*5, 
-                            100.0*(i * num_class_loop * n_repeats + j * n_repeats + k + 1) / (max_epochs * num_class_loop * n_repeats),
-                            100.0*(j * n_repeats + k + 1)/(num_class_loop * n_repeats),
-                            100.0*(k + 1)/n_repeats), end='\r')
-                    except tf.errors.OutOfRangeError:
-                        break
-        print()
-        
-def explore_direction_aspect(num_gpus, data_dir, dataset, cropped_size,
-                             total_batch_size, summary_dir, max_epochs,
-                             iter_n, step, threshold, aspect_type):
-    """Start direction aspect exploration. Producing results to summary_dir.
-
-    Args:
-        num_gpus: number of GPUs available to use.
-        total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
-        max_epochs: maximum epochs to train.
-        data_dir: the directory containing the input data.
-        dataset: the name of the dataset for the experiments.
-        cropped_size: image size after cropping.
-        iter_n: number of iterations to add gradients to original image.
-        step: step size of each iteration of gradient ascent to mutliply.
-        threshold: any gradients less than this value will not be added to the original image.
-        load_dir: the directory to load files.
-        summary_dir: the directory to write files.
-        aspect_type: 'naive_max_caps_dim'
-    """
-    load_dir = os.path.join(summary_dir, 'train')
-    summary_dir = os.path.join(summary_dir, aspect_type)
-    # Declare an empty model graph
-    with tf.Graph().as_default():
-        # Call run direction aspect
-        run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, cropped_size,
-                             iter_n, step, threshold,
-                             load_dir, summary_dir, aspect_type)
-
-def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, cropped_size,
-                    iter_n, step, threshold,
-                    load_dir, summary_dir, aspect_type):
-    """Start norm aspect exploration. Producing results to summary_dir
-    
-    Args:
-        num_gpus: number of GPUs available to use.
-        total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
-        max_epochs: maximum epochs to train.
-        data_dir: the directory containing the input data.
-        dataset: the name of the dataset for the experiments.
-        cropped_size: image size after cropping.
-        iter_n: number of iterations to add gradients to original image.
-        step: step size of each iteration of gradient ascent to mutliply.
-        threshold: any gradients less than this value will not be added to the original image.
-        load_dir: the directory to load files.
-        summary_dir: the directory to write files.
-        aspect_type: 'naive_max_norm' or 'max_norm_diff'
-    """
-    # Write specs file 
-    write_dir = _write_specs_file(summary_dir, aspect_type, dataset, total_batch_size,
-                                 max_epochs, iter_n, step, threshold)
-    # Find out to feed in noise of data
-    if 'noise_' in aspect_type:
-        aspect_type = aspect_type[6:]
-        split = 'noise'
-    else:
-        split = 'dream'
-
-    # Find latest checkpoint information
-    latest_step, latest_ckpt_path, _ = find_latest_checkpoint_info(load_dir)
-    if latest_step == -1 or latest_ckpt_path == None:
-        raise ValueError('Checkpoint files not found!')
-    else:
-        latest_ckpt_meta_path = latest_ckpt_path + '.meta'
-    
-    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-        # Import compute graph and restore variables
-        saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
-        saver.restore(sess, latest_ckpt_path)
-
-        # Compute the gradients 
-        result_grads, batched_images, caps_norms_tensor = vis_grad_computer[aspect_type].compute_grads(0)
-        n_repeats = len(result_grads) # = 10 if it is mnist, fmnist, svhn or cifar10
-        print('Number of gradients computed (= n_repeats = number of batches per epoch): ',
-              n_repeats)
-        
-        # Get batched dataset and specs 
-        batched_dataset, specs = get_distributed_dataset(
-            total_batch_size, num_gpus, max_epochs, 
-            data_dir, dataset, cropped_size,
-            split=split, n_repeats=n_repeats)
-        iterator = batched_dataset.make_initializable_iterator()
-        batch_data = iterator.get_next()
-        sess.run(iterator.initializer)
-
-        num_class_loop = specs['num_classes'] # TODO: =1 when using noise
-        for i in range(max_epochs):
-            for j in range(num_class_loop):
-                for k in range(n_repeats):
-                    try:
-                        # Get batched values
-                        batch_val = sess.run(batch_data)
-
-                        # Run gradient ascent {iter_n} iterations with step_size={step}
-                        # and threshold to get gradient ascended stacked image tensor
-                        # (iter_n, 1, 24, 24) and (iter_n, 3, 24, 24)
-                        img0 = batch_val['images']
-                        iter_n_recorded, ga_img_list = utils.run_gradient_ascent(
-                            result_grads[k], img0, batched_images, sess, iter_n, step, threshold)
-                        
-                        pred_class_prob_list = [] # list of probabilities of classes
-
-                        for img in ga_img_list:
-                            pred = sess.run(caps_norms_tensor, feed_dict={batched_images: img}) # (1, 10)
-                            pred = np.reshape(pred, -1) # (10,)
-                            
-                            pred_class_prob_list.append(pred) # [(10,), (10,), ...]
-                        
-                        ga_iter_matr = np.array(iter_n_recorded)
-                        ga_img_matr = np.stack(ga_img_list, axis=0)
-                        pred_class_prob_matr = np.stack(pred_class_prob_list)
-
-                        # save to npz file
-                        npzfname = 'instance_{}-lbl0_{}-lbl1_{}.npz'.format(i, j, k)
-                        npzfname = os.path.join(write_dir, npzfname)
-                        np.savez(npzfname, iters=ga_iter_matr, images=ga_img_matr, pred=pred_class_prob_matr)
-
-                        print('{0} {1} total:class:gradient = {2:.1f}% ~ {3:.1f}% ~ {4:.1f}%'.format(
-                            ' '*5, '-'*5, 
-                            100.0*(i * num_class_loop * n_repeats + j * n_repeats + k + 1) / (max_epochs * num_class_loop * n_repeats),
-                            100.0*(j * n_repeats + k + 1)/(num_class_loop * n_repeats),
-                            100.0*(k + 1)/n_repeats), end='\r')
-                    except tf.errors.OutOfRangeError:
-                        break
-        print()
-
-def explore_norm_aspect(num_gpus, data_dir, dataset, cropped_size,
-                        total_batch_size, summary_dir, max_epochs,
-                        iter_n, step, threshold, aspect_type):
-    """Produce gradient ascent on given images.
-
-    Args:
-        num_gpus: number of GPUs available to use.
-        data_dir: the directory containing the input data.
-        dataset: the name of the dataset for the experiments.
-        cropped_size: image size after cropping.
-        total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
-        summary_dir: the directory to write files.
-        max_epochs: maximum epochs to train.
-        iter_n: number of iterations to add gradients to original image.
-        step: step size of each iteration of gradient ascent to mutliply.
-        threshold: any gradients less than this value will not be added to the original image.
-        aspect_type: 'naive_max_norm' or 'max_norm_diff', or 'noise_naive_max_norm' or 'noise_max_norm_diff'
-    """
-    load_dir = os.path.join(summary_dir, 'train')
-    summary_dir = os.path.join(summary_dir, aspect_type)
-    # Declare an empty model graph
-    with tf.Graph().as_default():
-        # Call runn norm aspect
-        run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, cropped_size,
-                        iter_n, step, threshold,
-                        load_dir, summary_dir, aspect_type)
-
-def run_evaluate_session(iterator, specs, load_dir, summary_dir, kind):
-    """Find available checkpoints and iteratively load the graph and variables.
-
-    Args:
-        iterator: iterator, dataset iterator.
-        specs: dict, dictionary containing dataset specifications.
-        load_dir: str, directory that contains checkpoints.
-        summary_dir: str, directory to write summary
-        kind: 'train' or 'test'
-    Raises:
-        ckpt files not found.
-    """
-    if not os.path.exists(summary_dir):
-        os.makedirs(summary_dir)
-
-    # section to write test_history
-    """Load available checkpoints"""
-    latest_step, latest_ckpt_path, all_step_ckpt_pairs = find_latest_checkpoint_info(load_dir, True)
-    if latest_step == -1 or latest_ckpt_path == None:
-        raise ValueError('Checkpoint files not found!')
-    else:
-        print('Found ckpt at step {}'.format(latest_step))
-        latest_ckpt_meta_path = latest_ckpt_path + '.meta'
-    
-    with open(os.path.join(summary_dir, '%s_history.txt' % kind), 'a+') as f:
-        with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-            # Import compute grah
-            saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
-            batch_data = iterator.get_next()
-
-            # Iteratively restore variables
-            for idx, (step, ckptpath) in enumerate(all_step_ckpt_pairs):
-                # Restore variables 
-                saver.restore(sess, ckptpath)
-                
-                sess.run(iterator.initializer)
-                accs = []
-
-                while True:
-                    try: 
-                        # Get placeholders and create feed dict
-                        feed_dict = {}
-                        for i in range(specs['num_gpus']):
-                            batch_val = sess.run(batch_data)
-                            feed_dict[tf.get_collection('tower_%d_batched_images' % i)[0]] = batch_val['images']
-                            feed_dict[tf.get_collection('tower_%d_batched_labels' % i)[0]] = batch_val['labels']
-
-                        # Get accuracy tensor
-                        res_acc = tf.get_collection('accuracy')[0]
-                        # Calculate one total batch accuracy
-                        accuracy = sess.run(
-                            res_acc,
-                            feed_dict=feed_dict)
-                        # Append to the accuracy list.
-                        accs.append(accuracy)
-                    except tf.errors.OutOfRangeError:
-                        break
-                mean_acc = np.mean(accs)
-                print('step: {0}, accuracy: {1:.4f} ~ {2} / {3}'.format(step, mean_acc, idx + 1, len(all_step_ckpt_pairs)))
-                f.write('{}, {}\n'.format(step, mean_acc))
-
-def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size, cropped_size,
-             summary_dir, max_epochs):
-    """Iteratively restore the graph and variables, and return the data to 
-    train and test curve.
-
-    Args:
-        num_gpus: number of GPUs available to use.
-        data_dir: the directory containing the input data.
-        dataset: the name of the dataset for the experiments.
-        model_type: the name of the model architecture.
-        total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
-        cropped_size: image size after cropping.
-        summary_dir: the directory to load the model.
-        max_epochs: maximum epochs to evaluate, ≡ 1.
-    """
-    load_dir = os.path.join(summary_dir, 'train')
-    summary_dir = os.path.join(summary_dir, 'evaluate')
-    # Declare the empty model graph
-    with tf.Graph().as_default():
-        # Get train batched dataset and declare initializable iterator
-        train_distributed_dataset, train_specs = get_distributed_dataset(
-            total_batch_size, num_gpus, max_epochs, 
-            data_dir, dataset, cropped_size,
-            'train')
-        train_iterator = train_distributed_dataset.make_initializable_iterator()
-        # Call evaluate experiment 
-        run_evaluate_session(train_iterator, train_specs, load_dir, summary_dir, 'train')
-    with tf.Graph().as_default():
-        # Get batched dataset and declare initializable iterator
-        test_distributed_dataset, test_specs = get_distributed_dataset(
-            total_batch_size, num_gpus, max_epochs,
-             data_dir, dataset, cropped_size,
-             'test')
-        test_iterator = test_distributed_dataset.make_initializable_iterator()
-        # Call evaluate experiment
-        run_evaluate_session(test_iterator, test_specs, load_dir, summary_dir, 'test')
-
-def run_glitch_session(iterator, specs, load_dir, summary_dir, kind):
-    """Find available checkpoints run predictions
-    
-    Args:
-        iterator: iterator, dataset iterator;
-        specs: dict, dictionary containing dataset specifications;
-        load_dir: str, directory that contains checkpoints;
-        summary_dir: str, directory to write summary;
-        kind: 'train' or 'test';
-    Raises:
-        ckpts not found
-    """
-    if not os.path.exists(summary_dir):
-        os.makedirs(summary_dir)
-
-    # section to write error predictions
-    """Load available checkpoints"""
-    latest_step, latest_ckpt_path, _ = find_latest_checkpoint_info(load_dir, False)
-    if latest_step == -1 or latest_ckpt_path == None:
-        raise ValueError('Checkpoint files not found!')
-    else:
-        print('Found ckpt at step {}'.format(latest_step))
-        latest_ckpt_meta_path = latest_ckpt_path + '.meta'
-
-    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-        # Import compute graph and restore variables
-        saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
-        saver.restore(sess, latest_ckpt_path)
-
-        batch_data = iterator.get_next()
-        sess.run(iterator.initializer)
-
-        logits10_ts = []
-        batched_images_ts = []
-        batched_labels_ts = []
-        for i in range(specs['num_gpus']):
-            logits10_ts.append(tf.get_collection('tower_%d_visual' % i)[-1])
-            batched_images_ts.append(tf.get_collection('tower_%d_batched_images' % i)[0])
-            batched_labels_ts.append(tf.get_collection('tower_%d_batched_labels' % i)[0])
-        
-        logits10_t = tf.concat(logits10_ts, 0)
-        batched_images_t = tf.concat(batched_images_ts, 0)
-        batched_labels_t = tf.concat(batched_labels_ts, 0)
-
-        images_t = batched_images_t
-        logits_t = tf.argmax(logits10_t, axis=1, output_type=tf.int32)
-        labels_t = tf.argmax(batched_labels_t, axis=1, output_type=tf.int32)
-
-        correct_t = tf.equal(logits_t, labels_t)
-        error_t = tf.logical_not(correct_t)
-
-        # get accuracy
-        res_acc = tf.get_collection('accuracy')[0]
-
-        all_res_images = []
-        all_res_labels = []
-        all_res_logits = []
-        all_res_logits10 = []
-        all_res_accuracy = []
-        while True:
-            try:
-                feed_dict = {}
-                for i in range(specs['num_gpus']):
-                    batch_val = sess.run(batch_data)
-                    feed_dict[batched_images_ts[i]] = batch_val['images']
-                    feed_dict[batched_labels_ts[i]] = batch_val['labels']
-
-                accuracy, images, labels, logits, logits10, error = sess.run(
-                    [res_acc, images_t, labels_t, logits_t, logits10_t, error_t], 
-                    feed_dict=feed_dict)
-
-                # wrongly predicted instances
-                error_indices = [i for i in range(len(error)) if error[i] == True]
-
-                all_res_images.append(images[error_indices])
-                all_res_labels.append(labels[error_indices])
-                all_res_logits.append(logits[error_indices])
-                all_res_logits10.append(logits10[error_indices])
-
-                all_res_accuracy.append(accuracy)
-            except tf.errors.OutOfRangeError:
-                break
-        mean_acc = np.mean(all_res_accuracy)
-        print(mean_acc)
-        # stack up
-        all_res_images_mat = np.concatenate(all_res_images, axis=0)
-        all_res_images_mat = np.transpose(all_res_images_mat, [0, 2, 3, 1])
-        all_res_labels_mat = np.concatenate(all_res_labels, axis=0)
-        all_res_logits_mat = np.concatenate(all_res_logits, axis=0)
-        all_res_logits10_mat = np.concatenate(all_res_logits10, axis=0)
-
-        npzfname = os.path.join(summary_dir, '%s_wrong_predictions.npz' % kind)
-        np.savez(npzfname, images=all_res_images_mat, labels=all_res_labels_mat, logits=all_res_logits_mat, logits10=all_res_logits10_mat)
-
-def glitch(num_gpus, data_dir, dataset, model_type, total_batch_size, cropped_size, 
-           summary_dir, max_epochs):
-    """Predict all the error predicted instances and store them into writen files.
-
-    Args:
-        num_gpus: number of GPUs to use.
-        data_dir: the directory containing the input data.
-        dataset: the name of the dataset for the experiments.
-        model_type: the name of the model architecture.
-        total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
-        cropped_size: image size after cropping.
-        summary_dir: the directory to write summaries and save the model.
-        max_epochs: maximum epochs to train.
-    """
-    load_dir = os.path.join(summary_dir, 'train')
-    summary_dir = os.path.join(summary_dir, 'glitch')
-    # Declare an empty model graph
-    with tf.Graph().as_default():
-        # Get train batched dataset and declare initializable iterator
-        train_distributed_dataset, train_specs = get_distributed_dataset(
-            total_batch_size, num_gpus, max_epochs, 
-            data_dir, dataset, cropped_size,
-            'train')
-        train_iterator = train_distributed_dataset.make_initializable_iterator()
-        # Call evaluate experiment 
-        run_glitch_session(train_iterator, train_specs, load_dir, summary_dir, 'train')
-    with tf.Graph().as_default():
-        # Get batched dataset and declare initializable iterator
-        test_distributed_dataset, test_specs = get_distributed_dataset(
-            total_batch_size, num_gpus, max_epochs,
-             data_dir, dataset, cropped_size,
-             'test')
-        test_iterator = test_distributed_dataset.make_initializable_iterator()
-        # Call evaluate experiment
-        run_glitch_session(test_iterator, test_specs, load_dir, summary_dir, 'test')
-
-def run_boost_session(iterator, specs, load_dir, summary_dir, kind):
-    """Find available checkpoints run predictions
-    
-    Args:
-        iterator: iterator, dataset iterator;
-        specs: dict, dictionary containing dataset specifications;
-        load_dir: str, directory that contains checkpoints;
-        summary_dir: str, directory to write summary;
-        kind: 'train' or 'test';
-    Raises:
-        ckpts not found
-    """
-    if not os.path.exists(summary_dir):
-        os.makedirs(summary_dir)
-    
-    # section to predict reassembly
-    """Load available checkpoints"""
-    latest_step, latest_ckpt_path, _ = find_latest_checkpoint_info(load_dir, False)
-    if latest_step == -1 or latest_ckpt_path == None:
-        raise ValueError('Checkpoint files not found!')
-    else:
-        print('Found ckpt at step {}'.format(latest_step))
-        latest_ckpt_meta_path = latest_ckpt_path + '.meta'
-
-    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-        # Import compute graph and restore variables
-        saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
-        saver.restore(sess, latest_ckpt_path)
-
-        batch_data = iterator.get_next()
-        sess.run(iterator.initializer)
-
-        from pprint import pprint
-        """Boost starts here"""
-        for i in range(specs['num_gpus']):
-            pprint(tf.get_collection('tower_%d_boost_acts' % i))
-
-        reassemble_votes_list = []
-        batched_images_ts = []
-        batched_labels_ts = []
-        for i in range(specs['num_gpus']):
-            reassemble_votes_list.append(tf.get_collection('tower_%d_boost_acts' % i))
-            batched_images_ts.append(tf.get_collection('tower_%d_batched_images' % i)[0])
-            batched_labels_ts.append(tf.get_collection('tower_%d_batched_labels' % i)[0])
-        # concat
-        removed_effect_votes = []
-        for i in range(specs['num_classes']):
-            removed_effect_votes.append(
-                tf.concat([reassemble_votes_list[j][i] for j in range(specs['num_gpus'])], 0))
-        batched_images_t = tf.concat(batched_images_ts, 0)
-        batched_labels_t = tf.concat(batched_labels_ts, 0)
-        batched_assemble_logits10_t = tf.add_n(removed_effect_votes)
-
-        images_t = batched_images_t
-        labels_t = tf.argmax(batched_labels_t, axis=1, output_type=tf.int32)
-        logits_t = tf.argmax(batched_assemble_logits10_t, axis=1, output_type=tf.int32)
-        
-        correct_t = tf.cast(tf.equal(logits_t, labels_t), tf.float32)
-
-        reassemble_acc_t = tf.reduce_mean(correct_t)
-        acc_t = tf.get_collection('accuracy')[0]
-
-        all_reassemble_accuracy = []
-        all_accuracy = []
-        while True:
-            try:
-                feed_dict = {}
-                for i in range(specs['num_gpus']):
-                    batch_val = sess.run(batch_data)
-                    feed_dict[batched_images_ts[i]] = batch_val['images']
-                    feed_dict[batched_labels_ts[i]] = batch_val['labels']
-                
-                reassemble_accuracy, accuracy = sess.run([reassemble_acc_t, acc_t], feed_dict=feed_dict)
-
-                all_reassemble_accuracy.append(reassemble_accuracy)
-                all_accuracy.append(accuracy)
-                print('reassemble:normal = ({}, {})'.format(reassemble_accuracy, accuracy))
-            except tf.errors.OutOfRangeError:
-                break
-        mean_assemble_acc = np.mean(all_reassemble_accuracy)
-        mean_acc = np.mean(all_accuracy)
-        print('='*20)
-        print('reassemble:normal = ({}, {})'.format(reassemble_accuracy, accuracy))
-
-def boost(num_gpus, data_dir, dataset, model, total_batch_size, cropped_size,
-          summary_dir, max_epochs):
-    """Use a new approach to predict labels (reassemble method)
-    
-    Args:
-        num_gpus: number of GPUs to use.
-        data_dir: the directory containing the input data.
-        dataset: the name of the dataset for the experiments.
-        model_type: the name of the model architecture.
-        total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
-        cropped_size: image size after cropping.
-        summary_dir: the directory to write summaries and save the model.
-        max_epochs: maximum epochs to train.
-    """
-    load_dir = os.path.join(summary_dir, 'train')
-    summary_dir = os.path.join(summary_dir, 'boost')
-    # Declare an empty model graph
-    with tf.Graph().as_default():
-        # Get train batched dataset and declare initializable iterator
-        train_distributed_dataset, train_specs = get_distributed_dataset(
-            total_batch_size, num_gpus, max_epochs, 
-            data_dir, dataset, cropped_size,
-            'train')
-        train_iterator = train_distributed_dataset.make_initializable_iterator()
-        # Call evaluate experiment 
-        run_boost_session(train_iterator, train_specs, load_dir, summary_dir, 'train')
-    with tf.Graph().as_default():
-        # Get batched dataset and declare initializable iterator
-        test_distributed_dataset, test_specs = get_distributed_dataset(
-            total_batch_size, num_gpus, max_epochs,
-             data_dir, dataset, cropped_size,
-             'test')
-        test_iterator = test_distributed_dataset.make_initializable_iterator()
-        # Call evaluate experiment
-        run_boost_session(test_iterator, test_specs, load_dir, summary_dir, 'test')
-
-    pass
-
-def run_train_session(iterator, specs, # Dataset related
-                      summary_dir, max_to_keep, max_epochs, # Checkpoint related
-                      joined_result, save_epochs): # Model related
-    """Starts a session, train the model, write summary into event file,
-    and save the whole graph every {save_epochs} epochs.
-
-    Args:
-        iterator: iterator, dataset iterator.
-        specs: dict, dictionary containing dataset specifications.
-        num_gpus: scalar, number of gpus.
-        summary_dir: str, directory storing the checkpoints.
-        max_to_keep: scalar, maximum number of ckpt to keep.
-        joined_result: namedtuple, TowerResult('inferred', 'train_op', 
-                                    'summary', 'correct', 'accuracy')
-        save_epochs: scalar, how often to save the model
+        iterator: dataset iterator;
+        specs: dict, dataset specifications;
+        summary_dir: str, directory to store ckpts;
+        joined_result: namedtuple, TowerResult('inferred', 'train_op',
+                                               'summary', 'correct', 'accuracy');
+        save_epochs: scalar, how often to save the data.
     """
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-        # Declare summary writer and save the graph in the meanwhile.
+        # declare summary writer and save the graph in the meanwhile
         writer = tf.summary.FileWriter(summary_dir, sess.graph)
-        # Declare batched data instance and initialize the iterator
+        # declar batched data instance and initialize the iterator
         batch_data = iterator.get_next()
         sess.run(iterator.initializer)
-        # Initialize variables
+        # initialize variables
         init_op = tf.group(tf.global_variables_initializer(),
                            tf.local_variables_initializer())
         sess.run(init_op)
-        # Declare saver object for future saving
-        saver = tf.train.Saver(max_to_keep=max_to_keep)
+        # declare saver object for future saving
+        saver = tf.train.Saver()
 
         epoch_time = 0
         total_time = 0
@@ -890,27 +215,28 @@ def run_train_session(iterator, specs, # Dataset related
             epochs_done = step_counter // specs['steps_per_epoch']
         total_steps = specs['steps_per_epoch'] * (max_epochs - epochs_done)
 
-        # Start feeding process
+        # start feeding process
         for _ in range(total_steps):
             start_anchor = time.time() # time anchor
             step_counter += 1
-            
+
             try:
-                # Get placeholders and create feed_dict
-                feed_dict = {}
+                # get placeholders and create feed_dict
+                feed_dict = {} 
                 for i in range(specs['num_gpus']):
                     batch_val = sess.run(batch_data)
                     feed_dict[tf.get_collection('tower_%d_batched_images' % i)[0]] = batch_val['images']
                     feed_dict[tf.get_collection('tower_%d_batched_labels' % i)[0]] = batch_val['labels']
-
+                
+                """Run inferences"""
                 summary, accuracy, _ = sess.run(
                     [joined_result.summary, joined_result.accuracy, joined_result.train_op],
                     feed_dict=feed_dict)
-
                 """Add summary"""
                 writer.add_summary(summary, global_step=step_counter)
+                # calculate time
                 time_consuming = time.time() - start_anchor
-                epoch_time += time_consuming 
+                epoch_time += time_consuming
                 total_time += time_consuming
                 """Save ckpts"""
                 if step_counter % (specs['steps_per_epoch'] * save_epochs) == 0:
@@ -948,42 +274,40 @@ def run_train_session(iterator, specs, # Dataset related
             int(total_time % 60),
             accuracy))
 
-def train(hparams, num_gpus, data_dir, dataset, model_type, total_batch_size, cropped_size,
-                   summary_dir, max_to_keep,
-                   save_epochs, max_epochs):
-    """Trains a model with batch sizes of 100 to 50000/100*`max_epochs` steps.
+def train(hparams, num_gpus, data_dir, dataset, model_type, total_batch_size, image_size,
+                   summary_dir, save_epochs, max_epochs):
+    """Trains a model.
 
-    It will initialize the model with either previously saved model in the 
-    `summary_dir` or start from scratch if the directory is empty.
-    The training is distributed on `num_gpus` GPUs. It writes a summary at 
-    every step and saves the model every `save_epochs` steps.
+    It will initialize the model with either previously a saved model ckpt in
+    the {summary_dir} directory or start from scratch if the directory is empty.
+    The training is distributed on {num_gpus} GPUs. It writes a summary at 
+    every step and saves the model every {save_epochs} epochs.
 
     Args:
-        hparams: the hyperparameters to build the model graph.
-        num_gpus: number of GPUs to use.
-        data_dir: the directory containing the input data.
-        dataset: the name of the dataset for the experiments.
-        model_type: the name of the model architecture.
-        total_batch_size: total batch size, will be distributed to `num_gpus` GPUs.
-        cropped_size: image size after cropping.
-        summary_dir: the directory to write summaries and save the model.
-        max_to_keep: maximum checkpoint files to keep.
-        save_epochs: how often the training model should be saved.
+        hparams: the hyperparameters to build the model graph;
+        num_gpus: number of GPUs to use;
+        data_dir: the directory containing the input data;
+        dataset: the name of the dataset for the experiment;
+        model_type: the name of model architecture;
+        total_batch_size: total batch size, which will be distributed to {num_gpus} GPUs;
+        image_size: image size after cropping/resizing;
+        summary_dir: the directory to write summaries and save the model;
+        save_epochs: how often the training model should be saved;
         max_epochs: maximum epochs to train.
     """
+    # define subfolder in {summary_dir}
     summary_dir = os.path.join(summary_dir, 'train')
-
-    # Declare the empty model graph
+    # define model graph
     with tf.Graph().as_default():
-        # Get batched dataset and declare initializable iterator
+        # get batched dataset and declare initializable iterator
         distributed_dataset, specs = get_distributed_dataset(
-            total_batch_size, num_gpus, max_epochs, 
-            data_dir, dataset, cropped_size,
+            total_batch_size, num_gpus, max_epochs,
+            data_dir, dataset, image_size,
             'train')
         iterator = distributed_dataset.make_initializable_iterator()
-        # Initialize model with hparams and specs
-        model = models[model_type](hparams, specs)
-        # Build a model on multiple gpus and returns a tuple of 
+        # initialize model with hparams and specs
+        model = MODELS[model_type](hparams, specs)
+        # build a model on multiple gpus and returns a tuple of 
         # (a list of input tensor placeholders, a list of output tensor placeholders)
         joined_result = model.build_model_on_multi_gpus()
 
@@ -993,56 +317,188 @@ def train(hparams, num_gpus, data_dir, dataset, model_type, total_batch_size, cr
             tfprof_options=tf.contrib.tfprof.model_analyzer.TRAINABLE_VARS_PARAMS_STAT_OPTIONS)
         sys.stdout.write('total_params: %d\n' % param_stats.total_parameters)
         """"""
-        # Clear summary directory, TODO: start train from where left.
-        # Call train experiment
 
-        run_train_session(iterator, specs,
-                          summary_dir, max_to_keep, max_epochs,
+        run_train_session(iterator, specs, 
+                          summary_dir, max_epochs,
                           joined_result, save_epochs)
 
-def default_hparams():
-    """Builds an HParams object with default hperparameters."""
-    return tf.contrib.training.HParams(
-        decay_rate=0.96,
-        decay_steps=2000,
-        leaky=False,
-        learning_rate=0.001,
-        loss_type='margin',
-        num_prime_capsules=32,
-        padding='VALID',
-        remake=True,
-        routing=3,
-        verbose=False)
+def run_evaluate_session(iterator, specs, load_dir, summary_dir, kind, 
+                         model_type, threshold):
+    """Find available ckpts and iteratively load the graph and variables.
+
+    Args:
+        iterator: dataset iterator;
+        specs: dict, dataset specifications;
+        load_dir: str, directory to load graph;
+        summary_dir: str, directory to store ckpts;
+        kind: 'train' or 'test';
+        model_type: 'cnn' or 'cap';
+        threhold: if {model_type}='cnn', then it should be None; 
+            else, it is threshold to filter capsules;
+    """
+    # create summary folder if not exists
+    if not os.path.exists(summary_dir):
+        os.makedirs(summary_dir)
+
+    """Load available ckpts"""
+    # find latest step, ckpt, and all step-ckpt pairs
+    latest_step, latest_ckpt_path, all_step_ckpt_pairs = find_latest_checkpoint_info(load_dir, True)
+    if latest_step == -1 or latest_ckpt_path == None:
+        raise ValueError('{0}\n ckpt files not fould!\n {0}'.format('='*20))
+    else:
+        print('{0}\nFound a ckpt!\n{0}'.format('='*20))
+        latest_ckpt_meta_path = latest_ckpt_path + '.meta'
+
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+        # import compute graph
+        saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
+        # get dataset object working
+        batch_data = iterator.get_next()
+
+        """Process ensemble evaluation tensors"""
+        if model_type == 'cap':
+            # print ensemble capsule tensors
+            for i in range(specs['num_gpus']):
+                pprint(tf.get_collection('tower_%d_ensemble_acts' % i))
+            ensemble_votes_list = []
+            batched_images_t_list = []
+            batched_labels_t_list = []
+            for i in range(specs['num_gpus']):
+                ensemble_votes_list.append(tf.get_collection('tower_%d_ensemble_acts' % i))
+                batched_images_t_list.append(tf.get_collection('tower_%d_batched_images' % i)[0])
+                batched_labels_t_list.append(tf.get_collection('tower_%d_batched_labels' % i)[0])
+            removed_effect_votes = []
+            for i in range(specs['num_classes']):
+                removed_effect_votes.append(
+                    tf.concat([ensemble_votes_list[j][i] for j in range(specs['num_gpus'])], 0))
+            batched_images_t = tf.concat(batched_images_t_list, 0)
+            batched_labels_t = tf.concat(batched_labels_t_list, 0)
+            batched_ensemble_logits10_t = tf.add_n(removed_effect_votes)
+
+            images_t = batched_images_t
+            labels_t = tf.argmax(batched_labels_t, axis=1, output_type=tf.int32)
+            logits_t = tf.argmax(batched_ensemble_logits10_t, axis=1, output_type=tf.int32)
+
+            correct_t = tf.cast(tf.equal(logits_t, labels_t), tf.float32)
+
+            ensemble_acc_t = tf.reduce_mean(correct_t)
+
+        acc_t = tf.get_collection('accuracy')[0]
+
+        if model_type == 'cap':
+            step_mean_ensemble_acc_pairs = []
+        step_mean_acc_pairs = []
+
+        # iteratively restore variables and run evaluations
+        for idx, (step, ckptpath) in enumerate(all_step_ckpt_pairs):
+            # restore variables
+            saver.restore(sess, ckptpath)
+
+            sess.run(iterator.initializer)
+
+            if model_type == 'cap':
+                ensemble_accs = []
+            accs = []
+
+            while True:
+                try: 
+                    # get placeholders and create feed dict
+                    feed_dict = {}
+                    for i in range(specs['num_gpus']):
+                        batch_val = sess.run(batch_data)
+                        feed_dict[tf.get_collection('tower_%d_batched_images' % i)[0]] = batch_val['images']
+                        feed_dict[tf.get_collection('tower_%d_batched_labels' % i)[0]] = batch_val['labels']
+                        if model_type == 'cap':
+                            feed_dict[tf.get_collection('tower_%d_batched_threshold' % i)[0]] = threshold
+                    
+                    if model_type == 'cap':
+                        ensemble_acc, acc = sess.run([ensemble_acc_t, acc_t], feed_dict=feed_dict)
+                        ensemble_accs.append(ensemble_acc)
+                    else:
+                        acc = sess.run(acc_t, feed_dict=feed_dict)
+                    accs.append(acc)
+                except tf.errors.OutOfRangeError:
+                    break
+            if model_type == 'cap':
+                mean_ensemble_acc = np.mean(ensemble_accs)
+                step_mean_ensemble_acc_pairs.append((step, mean_ensemble_acc))
+            mean_acc = np.mean(accs)
+            step_mean_acc_pairs.append((step, mean_acc))
+            if model_type == 'cap':
+                print('step: {0}, accuracy:ensemble = {1:.4f}: {2:.4f} ~ {3} / {4}'.format(step, mean_acc, mean_ensemble_acc, idx+1, len(all_step_ckpt_pairs)))
+            else:
+                print('step: {0}, accuracy = {1:.4f} ~ {2} / {3}'.format(step, mean_acc, idx+1, len(all_step_ckpt_pairs)))
+        if model_type == 'cap':
+            with open(os.path.join(summary_dir, '%s_ensemble_history.txt' % kind), 'w+') as f:
+                for step, mean_ensemble_acc in step_mean_ensemble_acc_pairs:
+                    f.write('{}, {}\n'.format(step, mean_ensemble_acc))
+        with open(os.path.join(summary_dir, '%s_history.txt') % kind, 'w+') as f:
+            for step, mean_acc in step_mean_acc_pairs:
+                f.write('{}, {}\n'.format(step, mean_acc))
+
+def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size, image_size,
+             threshold, summary_dir, max_epochs):
+    """Iteratively restore the graph and variables, and return the data to train and test curve.
+    
+    Args:
+        num_gpus: number of GPUs to use;
+        data_dir: the directory containing the input data;
+        dataset: the name of the dataset for the experiment;
+        model_type: the name of model architecture;
+        total_batch_size: total batch size, which will be distributed to {num_gpus} GPUs;
+        image_size: image size after cropping/resizing;
+        threshold: threshold to filter out the target capsule effect;
+        summary_dir: the directory to write summaries and save the model;
+        max_epochs: maximum epochs to evaluate, ≡ 1.
+    """
+    # define subfolder to load ckpt and write related files
+    load_dir = os.path.join(summary_dir, 'train')
+    summary_dir = os.path.join(summary_dir, 'evaluate')
+    # declare an empty model graph
+    with tf.Graph().as_default():
+        # get train batched dataset and declare initializable iterator
+        train_distributed_dataset, train_specs = get_distributed_dataset(
+            total_batch_size, num_gpus, max_epochs,
+            data_dir, dataset, image_size,
+            'train')
+        train_iterator = train_distributed_dataset.make_initializable_iterator()
+        # call evaluate experiment
+        run_evaluate_session(train_iterator, train_specs, load_dir, summary_dir, 'train', 
+                             model_type, threshold)
+    with tf.Graph().as_default():
+        # get test batched dataset and delcare initializable iterator
+        test_distributed_dataset, test_specs = get_distributed_dataset(
+            total_batch_size, num_gpus, max_epochs,
+            data_dir, dataset, image_size,
+            'test')
+        test_iterator = test_distributed_dataset.make_initializable_iterator()
+        # call evaluate experiment
+        run_evaluate_session(test_iterator, test_specs, load_dir, summary_dir, 'test', 
+                             model_type, threshold)
 
 def main(_):
     hparams = default_hparams()
     if FLAGS.hparams_override:
         hparams.parse(FLAGS.hparams_override)
-
-    if FLAGS.mode == 'train':
-        train(hparams, FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size,
-                       FLAGS.summary_dir, FLAGS.max_to_keep,
-                       FLAGS.save_epochs, FLAGS.max_epochs)
-    elif FLAGS.mode == 'glitch':
-        glitch(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size, 
-              FLAGS.summary_dir, FLAGS.max_epochs)
-    elif FLAGS.mode == 'boost':
-        boost(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size,
-              FLAGS.summary_dir, FLAGS.max_epochs)
-    elif FLAGS.mode == 'evaluate':
-        evaluate(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size,
-                 FLAGS.summary_dir, FLAGS.max_epochs)
-    elif FLAGS.mode in NORM_ASPECT_TYPES or FLAGS.mode in ['noise_' + aspect for aspect in NORM_ASPECT_TYPES]:
-        explore_norm_aspect(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.image_size,
-                            FLAGS.total_batch_size, FLAGS.summary_dir, FLAGS.max_epochs,
-                            FLAGS.iter_n, float(FLAGS.step), float(FLAGS.threshold), FLAGS.mode)
-    elif FLAGS.mode in DIRECTION_ASPECT_TYPES or FLAGS.mode in ['noise_' + aspect for aspect in DIRECTION_ASPECT_TYPES]:
-        explore_direction_aspect(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.image_size,
-                                 FLAGS.total_batch_size, FLAGS.summary_dir, FLAGS.max_epochs, 
-                                 FLAGS.iter_n, float(FLAGS.step), float(FLAGS.threshold), FLAGS.mode)
-    else:
-        raise ValueError(
-            "No matching mode found for '{}'".format(FLAGS.mode))
     
+    if FLAGS.mode == 'train':
+        train(hparams, FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size, 
+                       FLAGS.summary_dir, FLAGS.save_epochs, FLAGS.max_epochs)
+    elif FLAGS.mode == 'evaluate':
+        assert FLAGS.method in METHOD_TYPES
+        evaluate(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size,
+                 FLAGS.threshold, FLAGS.summary_dir, FLAGS.max_epochs)
+        pass
+    elif FLAGS.mode == 'glitch':
+        assert FLAGS.method in METHOD_TYPES
+        pass
+    elif FLAGS.mode in NORM_ASPECT_TYPES or FLAGS.mode in ['noise_' + aspect for aspect in NORM_ASPECT_TYPES]:
+        pass
+    elif FLAGS.mode in DIRECTION_ASPECT_TYPES or FLAGS.mode in ['noise_' + aspect for aspect in DIRECTION_ASPECT_TYPES]:
+        pass
+    else:
+        raise ValueError("No matching mode found for '{}'".format(FLAGS.mode))
+
 if __name__ == '__main__':
     tf.app.run()
+    

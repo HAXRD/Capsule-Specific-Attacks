@@ -145,9 +145,12 @@ def _update_routing(tower_idx, votes, biases, logit_shape, num_ranks, in_dim, ou
         # transpose route to make compare easier
         route_trans = tf.transpose(route, [0, 2, 1])
         ten_splits = tf.split(route_trans, num_or_size_splits=10, axis=1)
+        threshold = tf.get_collection('tower_%d_batched_threshold' % tower_idx)[0]
         for split in ten_splits:
             split_shape = tf.shape(split) # (?, 1, 512)
-            valid_cap_indices = tf.less_equal(split, tf.fill(split_shape, 0.5)) # threshold here
+            valid_cap_indices = tf.less_equal(
+                split, 
+                tf.fill(split_shape, threshold)) # threshold here
             valid_cap_indices_sq = tf.squeeze(valid_cap_indices)
             valid_cap_multiplier = tf.cast(valid_cap_indices_sq, tf.float32) # (?, 512) 1.0 or 0.0
             valid_cap_multiplier_tiled = tf.tile(
@@ -158,7 +161,7 @@ def _update_routing(tower_idx, votes, biases, logit_shape, num_ranks, in_dim, ou
             preactivate = tf.reduce_sum(preact_trans, axis=1) + biases
             activation = _squash(preactivate)
             act_norm = tf.norm(activation, axis=-1, name='act_norm')
-            tf.add_to_collection('tower_%d_boost_acts' % tower_idx, act_norm) # total 10
+            tf.add_to_collection('tower_%d_ensemble_acts' % tower_idx, act_norm) # total 10
 
     """visual""" 
     for i in range(num_routing):
