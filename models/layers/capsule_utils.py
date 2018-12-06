@@ -140,6 +140,10 @@ def _update_routing(tower_idx, votes, biases, logit_shape, num_ranks, in_dim, ou
     act_replicated = tf.tile(act_3d, tile_shape)
     distances = tf.reduce_sum(votes * act_replicated, axis=3)
     logits += distances
+
+    full_norm = tf.norm(preactivate, axis=2, keepdims=True)
+    full_norm_squared = full_norm * full_norm
+    scale = full_norm_squared / (1 + full_norm_squared)
     if reassemble:
         """Boost section"""
         # transpose route to make compare easier
@@ -159,7 +163,11 @@ def _update_routing(tower_idx, votes, biases, logit_shape, num_ranks, in_dim, ou
             preact_unrolled = valid_cap_multiplier_tiled * route * votes_trans
             preact_trans = tf.transpose(preact_unrolled, r_t_shape)
             preactivate = tf.reduce_sum(preact_trans, axis=1) + biases
-            activation = _squash(preactivate)
+            # activation = _squash(preactivate)
+            # manual squash
+            with tf.name_scope('manual_norm_non_linearity'):
+                norm = tf.norm(preactivate, axis=2, keepdims=True)
+                activation = (preactivate / norm) * scale
             act_norm = tf.norm(activation, axis=-1, name='act_norm')
             tf.add_to_collection('tower_%d_ensemble_acts' % tower_idx, act_norm) # total 10
 
