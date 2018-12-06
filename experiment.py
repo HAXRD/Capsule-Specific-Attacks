@@ -201,7 +201,7 @@ def run_train_session(iterator, specs,
                            tf.local_variables_initializer())
         sess.run(init_op)
         # declare saver object for future saving
-        saver = tf.train.Saver()
+        saver = tf.train.Saver(max_to_keep=None)
 
         epoch_time = 0
         total_time = 0
