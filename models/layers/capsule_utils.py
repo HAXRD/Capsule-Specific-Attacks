@@ -143,7 +143,7 @@ def _update_routing(tower_idx, votes, biases, logit_shape, num_ranks, in_dim, ou
 
     full_norm = tf.norm(preactivate, axis=2, keepdims=True)
     full_norm_squared = full_norm * full_norm
-    scale = full_norm_squared / (1 + full_norm_squared)
+    scale = full_norm / (1 + full_norm_squared)
     if reassemble:
         """Boost section"""
         # transpose route to make compare easier
@@ -166,8 +166,7 @@ def _update_routing(tower_idx, votes, biases, logit_shape, num_ranks, in_dim, ou
             # activation = _squash(preactivate)
             # manual squash
             with tf.name_scope('manual_norm_non_linearity'):
-                norm = tf.norm(preactivate, axis=2, keepdims=True)
-                activation = (preactivate / norm) * scale
+                activation = preactivate * scale
             act_norm = tf.norm(activation, axis=-1, name='act_norm')
             tf.add_to_collection('tower_%d_ensemble_acts' % tower_idx, act_norm) # total 10
 
