@@ -136,7 +136,7 @@ def find_event_file_path(load_dir):
     Returns:
         path to the event file.
     """
-    fpath_list = glob.glob(os.path.join(load_dir, 'events.*'))
+    fpath_list = glob(os.path.join(load_dir, 'events.*'))
     if len(fpath_list) == 1:
         return fpath_list[0]
     else:
@@ -154,7 +154,7 @@ def find_latest_checkpoint_info(load_dir, find_all=False):
     if ckpt and ckpt.model_checkpoint_path:
         latest_step = extract_step(ckpt.model_checkpoint_path)
         if find_all == True:
-            ckpt_paths = glob.glob(os.path.join(load_dir, 'model.ckpt-*.index'))
+            ckpt_paths = glob(os.path.join(load_dir, 'model.ckpt-*.index'))
             pairs = [(int(re.search('\d+', os.path.basename(path)).group(0)), 
                       os.path.join(os.path.dirname(path), os.path.basename(path)[:-6]))
                       for path in ckpt_paths]

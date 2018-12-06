@@ -141,6 +141,10 @@ class CapsuleModel(model.Model):
         """visual"""
         tf.add_to_collection('tower_%d_batched_images' % tower_idx, batched_images)
 
+        # declare the threshold placeholder for ensemble evaluation
+        threshold = tf.placeholder(tf.float32, name='threshold')
+        tf.add_to_collection('tower_%d_batched_threshold' % tower_idx, threshold)
+
         # ReLU Convolution
         with tf.variable_scope('conv1') as scope:
             kernel = variables.weight_variable(
@@ -174,10 +178,6 @@ class CapsuleModel(model.Model):
             shape=[None, num_classes], name='batched_labels')
         tf.add_to_collection('tower_%d_batched_labels' % tower_idx, batched_labels)
         
-        # declare the threshold placeholder for ensemble evaluation
-        threshold = tf.placeholder(tf.float32, name='threshold')
-        tf.add_to_collection('tower_%d_batched_threshold' % tower_idx, threshold)
-
         # Reconstruction
         remake = None
         if self._hparams.remake:
