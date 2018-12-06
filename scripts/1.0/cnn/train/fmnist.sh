@@ -10,5 +10,5 @@ source ~/tfp363/bin/activate
 python ~/DeepDream/experiment.py --total_batch_size=200 --mode=train --model=cnn --data_dir=/home/xuc/DeepDream/data/fashion_mnist/ --dataset=fashion_mnist --max_epochs=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/final/cnn/fmnist
 
 # debug
-# python ~/DeepDream/experiment.py --total_batch_size=200 --mode=train --model=cnn --data_dir=/home/xuc/DeepDream/data/fashion_mnist/ --dataset=fashion_mnist --max_epochs=20 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/cnn/fmnist
+# python ~/DeepDream/experiment.py --total_batch_size=200 --mode=train --model=cnn --data_dir=/home/xuc/DeepDream/data/fashion_mnist/ --dataset=fashion_mnist --max_epochs=6 --save_epochs=2 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/cnn/fmnist
 

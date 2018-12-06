@@ -10,5 +10,5 @@ source ~/tfp363/bin/activate
 python ~/DeepDream/experiment.py --total_batch_size=200 --mode=train --model=cnn --data_dir=/home/xuc/DeepDream/data/cifar-10-batches-mat/ --dataset=cifar10 --max_epochs=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/final/cnn/cifar10
 
 # debug
-# python ~/DeepDream/experiment.py --total_batch_size=200 --mode=train --model=cnn --data_dir=/home/xuc/DeepDream/data/cifar-10-batches-mat/ --dataset=cifar10 --max_epochs=20 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/cnn/cifar10
+# python ~/DeepDream/experiment.py --total_batch_size=200 --mode=train --model=cnn --data_dir=/home/xuc/DeepDream/data/cifar-10-batches-mat/ --dataset=cifar10 --max_epochs=6 --save_epochs=2 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/cnn/cifar10
 

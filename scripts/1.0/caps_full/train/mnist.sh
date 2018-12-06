@@ -10,5 +10,5 @@ source ~/tfp363/bin/activate
 python ~/DeepDream/experiment.py --total_batch_size=200 --mode=train --model=cap --data_dir=/home/xuc/DeepDream/data/mnist/ --dataset=mnist --max_epochs=1000 --summary_dir=/home/xuc/projects/def-sageev/xuc/final/caps_full/mnist 
 
 # debug
-# python ~/DeepDream/experiment.py --total_batch_size=200 --mode=train --model=cap --data_dir=/home/xuc/DeepDream/data/mnist/ --dataset=mnist --max_epochs=20 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/caps_full/mnist 
+# python ~/DeepDream/experiment.py --total_batch_size=200 --mode=train --model=cap --data_dir=/home/xuc/DeepDream/data/mnist/ --dataset=mnist --max_epochs=6 --save_epochs=2 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/caps_full/mnist 
 

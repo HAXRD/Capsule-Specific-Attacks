@@ -485,12 +485,10 @@ def main(_):
         train(hparams, FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size, 
                        FLAGS.summary_dir, FLAGS.save_epochs, FLAGS.max_epochs)
     elif FLAGS.mode == 'evaluate':
-        assert FLAGS.method in METHOD_TYPES
         evaluate(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size,
                  FLAGS.threshold, FLAGS.summary_dir, FLAGS.max_epochs)
         pass
     elif FLAGS.mode == 'glitch':
-        assert FLAGS.method in METHOD_TYPES
         pass
     elif FLAGS.mode in NORM_ASPECT_TYPES or FLAGS.mode in ['noise_' + aspect for aspect in NORM_ASPECT_TYPES]:
         pass
