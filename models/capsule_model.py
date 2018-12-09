@@ -64,7 +64,9 @@ class CapsuleModel(model.Model):
                 image=batched_images,
                 balance_factor=0.0005)
         
-        return remake
+        remake_reshaped = tf.reshape(remake, [-1, image_depth, image_size, image_size])
+
+        return remake_reshaped
 
     def _build_capsule(self, input_tensor, num_classes, tower_idx):
         """Adds capsule layers.
@@ -182,6 +184,7 @@ class CapsuleModel(model.Model):
         remake = None
         if self._hparams.remake:
             remake = self._remake(capsule_output, batched_images, batched_labels)
+            tf.add_to_collection('tower_%d_recons', remake)
         else:
             remake = None
         
