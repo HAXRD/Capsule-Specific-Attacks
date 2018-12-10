@@ -184,7 +184,7 @@ class CapsuleModel(model.Model):
         remake = None
         if self._hparams.remake:
             remake = self._remake(capsule_output, batched_images, batched_labels)
-            tf.add_to_collection('tower_%d_recons', remake)
+            tf.add_to_collection('tower_%d_recons' % tower_idx, remake)
         else:
             remake = None
         
