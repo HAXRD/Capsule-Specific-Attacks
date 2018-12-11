@@ -540,7 +540,7 @@ def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, i
               n_repeats)
         
         # find the reconstruction tensor
-        recons_t = tf.get_collection('tower_%d_recons' % 0)[0]
+        # recons_t = tf.get_collection('tower_%d_recons' % 0)[0]
 
         # get batched dataset and specs
         batched_dataset, specs = get_distributed_dataset(
@@ -570,24 +570,26 @@ def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, i
                             result_grads[k], img0, batched_images, sess, iter_n, step, threshold)
                         
                         pred_class_prob_list = [] # list of probabilities of classes
-                        recons_img_list = [] # list of reconstructed images
+                        # recons_img_list = [] # list of reconstructed images
                         for img in ga_img_list:
-                            pred, recons_img = sess.run([caps_norms_tensor, recons_t], feed_dict={batched_images: img}) # (1, 10)
+                            # pred, recons_img = sess.run([caps_norms_tensor, recons_t], feed_dict={batched_images: img}) # (1, 10)
+                            pred = sess.run(caps_norms_tensor, feed_dict={batched_images: img}) # (1, 10)
                             pred = np.reshape(pred, -1) # (10,)
-                            recons_img = np.squeeze(recons_img, 0)
+                            # recons_img = np.squeeze(recons_img, 0)
 
                             pred_class_prob_list.append(pred) # [(10,), (10,), ...]
-                            recons_img_list.append(recons_img) # [(C, H, W), ....]
+                            # recons_img_list.append(recons_img) # [(C, H, W), ....]
 
                         ga_iter_matr = np.array(iter_n_recorded)
                         ga_img_matr = np.stack(ga_img_list, axis=0)
                         pred_class_prob_matr = np.stack(pred_class_prob_list)
-                        recons_img_matr = np.stack(recons_img_list, axis=0)
+                        # recons_img_matr = np.stack(recons_img_list, axis=0)
 
                         # save to npz file
                         npzfname = 'instance_{}-lbl0_{}-lbl1_{}.npz'.format(i, j, k)
                         npzfname = os.path.join(write_dir, npzfname)
-                        np.savez(npzfname, iters=ga_iter_matr, images=ga_img_matr, pred=pred_class_prob_matr, recons=recons_img_matr)
+                        # np.savez(npzfname, iters=ga_iter_matr, images=ga_img_matr, pred=pred_class_prob_matr, recons=recons_img_matr)
+                        np.savez(npzfname, iters=ga_iter_matr, images=ga_img_matr, pred=pred_class_prob_matr)
 
                         print('{0} {1} total:class:gradient = {2:.1f}% ~ {3:.1f}% ~ {4:.1f}%'.format(
                             ' '*5, '-'*5, 
