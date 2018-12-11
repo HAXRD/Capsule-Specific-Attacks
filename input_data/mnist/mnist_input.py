@@ -109,7 +109,7 @@ def inputs(total_batch_size, num_gpus, max_epochs, cropped_size,
 
     if cropped_size == None:
         cropped_size = specs['image_size']
-    assert cropped_size < specs['image_size']
+    assert cropped_size <= specs['image_size']
 
     """Load data from numpy array file"""
     with np.load(os.path.join(data_dir, 'mnist.npz')) as f:
