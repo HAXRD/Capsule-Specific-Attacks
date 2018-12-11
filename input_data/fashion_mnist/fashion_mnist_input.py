@@ -32,7 +32,7 @@ def _single_process(image, label, specs, cropped_size):
     """
     image = tf.expand_dims(image, -1) # (HWC)
     if specs['distort']:
-        if cropped_size < specs['image_size']:
+        if cropped_size <= specs['image_size']:
             # resize image
             image = tf.image.resize_images(image, [cropped_size, cropped_size])
             if specs['split'] == 'train':

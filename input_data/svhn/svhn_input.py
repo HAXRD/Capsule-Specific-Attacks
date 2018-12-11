@@ -30,7 +30,7 @@ def _single_process(image, label, specs, cropped_size):
         feature: a dictionary contains an image, and an label.
     """
     if specs['distort']:
-        if cropped_size < specs['image_size']:
+        if cropped_size <= specs['image_size']:
             if specs['split'] == 'train':
                 # random cropping 
                 image = tf.random_crop(image, [cropped_size, cropped_size, 3])
