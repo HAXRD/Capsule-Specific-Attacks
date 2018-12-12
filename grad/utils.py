@@ -65,7 +65,9 @@ def run_gradient_ascent(t_grad, img0, in_ph, sess,
         img += g * step # (1, 1, 24, 24) or (1, 3, 24, 24)
         # clip out invalid values
         img = np.clip(img, 0., 1.)
-        
+        # squeeze out dimension 0
+        img = np.squeeze(img, axis=0)
+
         # record results
         if i in iter_ns_to_record:
             ga_img_list.append(img)
