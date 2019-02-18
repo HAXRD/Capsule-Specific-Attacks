@@ -9,6 +9,7 @@ rm -rf noise_max_caps_dim_diff/outs
 rm -rf noise_max_norm_diff/outs
 rm -rf noise_naive_max_caps_dim/outs
 rm -rf noise_naive_max_norm/outs
+rm -rf train/outs
 
 # remove dim aspect only
 rm -rf max_caps_dim_diff/
@@ -26,6 +27,7 @@ mkdir -p noise_max_caps_dim_diff/outs
 mkdir -p noise_max_norm_diff/outs
 mkdir -p noise_naive_max_caps_dim/outs
 mkdir -p noise_naive_max_norm/outs
+mkdir -p train/outs
 
 # cnn
 mkdir -p evaluate/outs
@@ -33,3 +35,4 @@ mkdir -p max_norm_diff/outs
 mkdir -p naive_max_norm/outs
 mkdir -p noise_max_norm_diff/outs
 mkdir -p noise_naive_max_norm/outs
+mkdir -p train/outs

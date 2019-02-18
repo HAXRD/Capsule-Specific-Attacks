@@ -56,9 +56,8 @@ tf.flags.DEFINE_string('summary_dir', './summary',
 tf.flags.DEFINE_integer('iter_n', 100,
                         'Number of iteration to run the gradient ascent;\n'
                         'the code only record iterations at\n'
-                        '[1, 2, 3, 4, 5, 6, 7, 8, 9,\n'
-                        ' 10, 20, 40, 60, 80,\n'
-                        ' 100, 200, 400, 600, 800, 1000].')
+                        '[1, 2, 3, 4, 5,\n'
+                        ' 10, 20, 40, 60, 80, 100\n')
 tf.flags.DEFINE_string('step', '0.004',
                        'Step size for each iteration.')
 ###################################

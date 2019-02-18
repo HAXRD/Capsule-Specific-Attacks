@@ -22,9 +22,8 @@ import numpy as np
 def run_gradient_ascent(t_grad, img0, in_ph, sess,
                         iter_n, step, threshold=0.0):
     """Run gradient ascent to the given image and only record those results at 
-    iter_ns_to_record = [1, 2, 3, 4, 5, 6, 7, 8, 9,
-                         10, 20, 40, 60, 80, 
-                         100, 200, 400, 600, 800, 1000]
+    iter_ns_to_record = [1, 2, 3, 4, 5, 
+                         10, 20, 40, 60, 80, 100]
 
     Args:
         t_grad: the gradients of target objective function w.r.t. the batched
@@ -44,7 +43,7 @@ def run_gradient_ascent(t_grad, img0, in_ph, sess,
     """
     assert iter_n >= 10
     iter_ns_to_record = [1, 2, 3, 4, 5, 
-                         10, 20, 40, 60, 80]
+                         10, 20, 40, 60, 80, 100]
 
     img = img0.copy() # (1, 1, 24, 24) or (1, 3, 24, 24)
 

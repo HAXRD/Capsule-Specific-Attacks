@@ -7,8 +7,12 @@
 
 source ~/tfp363/bin/activate
 
-python ~/DeepDream/experiment.py --total_batch_size=1 --mode=naive_max_norm --data_dir=/home/xuc/DeepDream/data/mnist/ --dataset=mnist --summary_dir=/home/xuc/projects/def-sageev/xuc/final/cnn/mnist --model=cnn 
+REPO_DIR=/home/xuc/DeepDream
+TOTAL_BATCH_SIZE=1
+MODEL=cnn
+MODE=naive_max_norm
+DATASET=mnist
+MAX_EPOCHS=500
+SUMMARY_DIR=/home/xuc/projects/def-sageev/xuc/$MODEL/$DATASET
 
-# debug
-# python ~/DeepDream/experiment.py --total_batch_size=1 --mode=naive_max_norm --data_dir=/home/xuc/DeepDream/data/mnist/ --dataset=mnist --iter_n=100 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/cnn/mnist --model=cnn
-
+python $REPO_DIR/experiment.py --total_batch_size=$TOTAL_BATCH_SIZE --mode=$MODE --data_dir=$REPO_DIR/data/$DATASET/ --dataset=$DATASET --summary_dir=$SUMMARY_DIR

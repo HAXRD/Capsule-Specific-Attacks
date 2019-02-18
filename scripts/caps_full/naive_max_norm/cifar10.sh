@@ -7,8 +7,13 @@
 
 source ~/tfp363/bin/activate
 
-python ~/DeepDream/experiment.py --total_batch_size=1 --mode=naive_max_norm --data_dir=/home/xuc/DeepDream/data/cifar-10-batches-mat/ --dataset=cifar10 --summary_dir=/home/xuc/projects/def-sageev/xuc/final/caps_full/cifar10
+REPO_DIR=/home/xuc/DeepDream
+TOTAL_BATCH_SIZE=1
+MODEL=cap
+MODE=naive_max_norm
+DATASET=cifar10
+MAX_EPOCHS=500
+SUMMARY_DIR=/home/xuc/projects/def-sageev/xuc/$MODEL/$DATASET
 
-# debug
-# python ~/DeepDream/experiment.py --total_batch_size=1 --mode=naive_max_norm --data_dir=/home/xuc/DeepDream/data/cifar-10-batches-mat/ --dataset=cifar10 --iter_n=100 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/caps_full/cifar10
+python $REPO_DIR/experiment.py --total_batch_size=$TOTAL_BATCH_SIZE --mode=$MODE --data_dir=$REPO_DIR/data/$DATASET/ --dataset=$DATASET --summary_dir=$SUMMARY_DIR
 

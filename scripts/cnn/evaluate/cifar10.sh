@@ -12,3 +12,12 @@ python ~/DeepDream/experiment.py --total_batch_size=200 --mode=evaluate --data_d
 # debug
 # python ~/DeepDream/experiment.py --total_batch_size=200 --mode=evaluate --data_dir=/home/xuc/DeepDream/data/cifar-10-batches-mat/ --dataset=cifar10 --max_epochs=1 --summary_dir=/home/xuc/projects/def-sageev/xuc/debug/cnn/cifar10 --model=cnn
 
+REPO_DIR=/home/xuc/DeepDream
+TOTAL_BATCH_SIZE=200
+MODEL=cnn
+MODE=evaluate
+DATASET=cifar10
+MAX_EPOCHS=1
+SUMMARY_DIR=/home/xuc/projects/def-sageev/xuc/$MODEL/$DATASET
+
+python $REPO_DIR/experiment.py --total_batch_size=$TOTAL_BATCH_SIZE --mode=$MODE --data_dir=$REPO_DIR/data/$DATASET/ --dataset=$DATASET --max_epochs=$MAX_EPOCHS --summary_dir=$SUMMARY_DIR --model=$MODEL
