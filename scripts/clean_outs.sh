@@ -1,38 +1,18 @@
 #!/bin/bash
 
-rm -rf evaluate/outs
-rm -rf max_caps_dim_diff/outs
-rm -rf max_norm_diff/outs
-rm -rf naive_max_caps_dim/outs
-rm -rf naive_max_norm/outs
-rm -rf noise_max_caps_dim_diff/outs
-rm -rf noise_max_norm_diff/outs
-rm -rf noise_naive_max_caps_dim/outs
-rm -rf noise_naive_max_norm/outs
-rm -rf train/outs
-
-# remove dim aspect only
-rm -rf max_caps_dim_diff/
-rm -rf naive_max_caps_dim/
-rm -rf noise_max_caps_dim_diff/
-rm -rf noise_naive_max_caps_dim/
+# clean outs folder
+rm -rf ./scripts/*/*/outs
 
 # caps_full
-mkdir -p evaluate/outs
-mkdir -p max_caps_dim_diff/outs
-mkdir -p max_norm_diff/outs
-mkdir -p naive_max_caps_dim/outs
-mkdir -p naive_max_norm/outs
-mkdir -p noise_max_caps_dim_diff/outs
-mkdir -p noise_max_norm_diff/outs
-mkdir -p noise_naive_max_caps_dim/outs
-mkdir -p noise_naive_max_norm/outs
-mkdir -p train/outs
+mkdir -p ./scripts/caps_full/evaluate/outs
+mkdir -p ./scripts/caps_full/max_caps_dim_diff/outs
+mkdir -p ./scripts/caps_full/max_norm_diff/outs
+mkdir -p ./scripts/caps_full/naive_max_caps_dim/outs
+mkdir -p ./scripts/caps_full/naive_max_norm/outs
+mkdir -p ./scripts/caps_full/train/outs
 
 # cnn
-mkdir -p evaluate/outs
-mkdir -p max_norm_diff/outs
-mkdir -p naive_max_norm/outs
-mkdir -p noise_max_norm_diff/outs
-mkdir -p noise_naive_max_norm/outs
-mkdir -p train/outs
+mkdir -p ./scripts/cnn/evaluate/outs
+mkdir -p ./scripts/cnn/max_norm_diff/outs
+mkdir -p ./scripts/cnn/naive_max_norm/outs
+mkdir -p ./scripts/cnn/train/outs
