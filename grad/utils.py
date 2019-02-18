@@ -43,9 +43,8 @@ def run_gradient_ascent(t_grad, img0, in_ph, sess,
         shape of (1, 1, 24, 24) or (1, 3, 24, 24),
     """
     assert iter_n >= 10
-    iter_ns_to_record = [1, 2, 3, 4, 5, 6, 7, 8, 9,
-                         10, 20, 40, 60, 80, 
-                         100, 200, 400, 600, 800, 1000]
+    iter_ns_to_record = [1, 2, 3, 4, 5, 
+                         10, 20, 40, 60, 80]
 
     img = img0.copy() # (1, 1, 24, 24) or (1, 3, 24, 24)
 
@@ -56,10 +55,8 @@ def run_gradient_ascent(t_grad, img0, in_ph, sess,
         # caculate the gradient values
         g = sess.run(t_grad, feed_dict={in_ph: img})
 
-        # filter out any values that belows the threshold
-        g_abs = np.absolute(g)
-        filt = np.greater(g_abs, threshold).astype(np.float32)
-        g *= filt
+        # fgsm
+        g = np.sign(g)
         
         # add gradients
         img += g * step # (1, 1, 24, 24) or (1, 3, 24, 24)

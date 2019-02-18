@@ -26,7 +26,7 @@ tf.flags.DEFINE_integer('save_epochs', 10,
 tf.flags.DEFINE_integer('max_epochs', 10,
                         'train, evaluate, ensemble: maximum epochs to run;\n'
                         'others: number of different examples to viasualize.')
-tf.flags.DEFINE_integer('image_size', 24,
+tf.flags.DEFINE_integer('image_size', 28,
                         'Define the image size for dataset.')
 
 tf.flags.DEFINE_string('mode', 'train',
@@ -53,13 +53,13 @@ tf.flags.DEFINE_string('summary_dir', './summary',
                        'The directory to write results.')
 
 ###### Norm & Direction only ######
-tf.flags.DEFINE_integer('iter_n', 1000,
+tf.flags.DEFINE_integer('iter_n', 100,
                         'Number of iteration to run the gradient ascent;\n'
                         'the code only record iterations at\n'
                         '[1, 2, 3, 4, 5, 6, 7, 8, 9,\n'
                         ' 10, 20, 40, 60, 80,\n'
                         ' 100, 200, 400, 600, 800, 1000].')
-tf.flags.DEFINE_string('step', '0.1',
+tf.flags.DEFINE_string('step', '0.004',
                        'Step size for each iteration.')
 ###################################
 tf.flags.DEFINE_string('threshold', '0.0',
