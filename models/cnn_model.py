@@ -96,7 +96,7 @@ class CNNModel(model.Model):
         tf.add_to_collection('tower_%d_batched_images' % tower_idx, batched_images)
         
         # Add convolutional layers
-        conv_out = self._add_convs(batched_images, [image_depth, 512, 512], tower_idx)
+        conv_out = self._add_convs(batched_images, [image_depth, 512, 256], tower_idx)
         hidden1 = tf.contrib.layers.flatten(conv_out) # flatten neurons, shape (?, rest)
 
         # Add fully connected layer 1, activation = relu
