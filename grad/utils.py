@@ -55,7 +55,7 @@ def run_gradient_ascent(t_grad, img0, in_ph, sess,
         g = sess.run(t_grad, feed_dict={in_ph: img})
 
         # fgsm
-        g = np.sign(g)
+        # g = np.sign(g)
         
         # add gradients
         img += g * step # (1, 1, 24, 24) or (1, 3, 24, 24)

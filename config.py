@@ -53,12 +53,12 @@ tf.flags.DEFINE_string('summary_dir', './summary',
                        'The directory to write results.')
 
 ###### Norm & Direction only ######
-tf.flags.DEFINE_integer('iter_n', 100,
+tf.flags.DEFINE_integer('iter_n', 101,
                         'Number of iteration to run the gradient ascent;\n'
                         'the code only record iterations at\n'
                         '[1, 2, 3, 4, 5,\n'
                         ' 10, 20, 40, 60, 80, 100\n')
-tf.flags.DEFINE_string('step', '0.004',
+tf.flags.DEFINE_string('step', '1.0',
                        'Step size for each iteration.')
 ###################################
 tf.flags.DEFINE_string('threshold', '0.0',
