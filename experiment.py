@@ -78,6 +78,17 @@ NORM_ASPECT_TYPES = ['naive_max_norm', 'max_norm_diff']
 
 DIRECTION_ASPECT_TYPES = ['naive_max_caps_dim', 'max_caps_dim_diff']
 
+def _compute_entropy(arr):
+    """Given a numpy array compute the entropy of it
+    Args:
+        arr: a numpy array;
+    Returns:
+        entropy: scalar, the entropy of the given array;
+    """
+    arr_sum = np.sum(arr)
+    entropy = - np.dot(arr/arr_sum, np.log2(arr))
+    return entropy
+
 def get_distributed_dataset(total_batch_size, num_gpus,
                             max_epochs, data_dir, dataset, image_size,
                             split='default', n_repeats=None):
@@ -571,12 +582,15 @@ def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, i
                             result_grads[k], img0, batched_images, sess, iter_n, step, threshold)
                         
                         pred_class_prob_list = [] # list of probabilities of classes
+                        pred_class_entropy_list = [] # list of probabilities of prediction entropies
                         recons_win_cap_img_list = [] # list of reconstructed images using the winning capsule
                         recons_all_cap_img_list = [] # list of reconstructed images using all capsules
                         for img in ga_img_list:
                             pred = sess.run(caps_norms_tensor, feed_dict={batched_images: img}) # (1, 10)
                             pred = np.reshape(pred, -1) # (10,)
                             pred_cl = np.argmax(pred) # ()
+
+                            entropy = _compute_entropy(pred)
                             
                             # winning capsule mask
                             win_cap_mask = np.array([0.0 for _ in range(10)])
@@ -591,12 +605,14 @@ def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, i
                                 sess.run(recons_t, feed_dict={batched_images: img, batched_labels_t: all_cap_mask}), 0)
 
                             pred_class_prob_list.append(pred) # [(10,), (10,), ...]
+                            pred_class_entropy_list.append(entropy)
                             recons_win_cap_img_list.append(recons_win_cap_img) # [(C, H, W), ....]
                             recons_all_cap_img_list.append(recons_all_cap_img) # [(C, H, W), ....]
 
                         ga_iter_matr = np.array(iter_n_recorded)
                         ga_img_matr = np.stack(ga_img_list, axis=0)
                         pred_class_prob_matr = np.stack(pred_class_prob_list)
+                        pred_class_entropy_matr = np.stack(pred_class_entropy_list, axis=0)
                         recons_win_cap_img_matr = np.stack(recons_win_cap_img_list, axis=0)
                         recons_all_cap_img_matr = np.stack(recons_all_cap_img_list, axis=0)
 
@@ -604,6 +620,7 @@ def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, i
                         npzfname = 'instance_{}-lbl0_{}-lbl1_{}.npz'.format(i, j, k)
                         npzfname = os.path.join(write_dir, npzfname)
                         np.savez(npzfname, iters=ga_iter_matr, images=ga_img_matr, pred=pred_class_prob_matr, 
+                                 pred_entropy=pred_class_prob_matr,
                                  recons_win_cap=recons_win_cap_img_matr,
                                  recons_all_cap=recons_all_cap_img_matr)
 
@@ -724,6 +741,7 @@ def run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, datas
                             result_grads[j*num_class_loop+k], img0, batched_images, sess, iter_n, step, threshold)
                         
                         pred_class_prob_list = [] # list of (predicted_class, probabilities of predicted class)s
+                        pred_class_entropy_list = []
                         recons_win_cap_img_list = [] # list of reconstructed images using the winning capsule
                         recons_all_cap_img_list = [] # list of reconstructed images using all capsules
 
@@ -731,6 +749,8 @@ def run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, datas
                             pred = sess.run(caps_norms_tensor, feed_dict={batched_images: img}) # (1, 10)
                             pred = np.reshape(pred, -1) # (10,)
                             pred_cl = np.argmax(pred) # ()
+
+                            entropy = _compute_entropy(pred)
 
                             # winning capsule mask
                             win_cap_mask = np.array([0.0 for _ in range(10)])
@@ -747,12 +767,14 @@ def run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, datas
 
 
                             pred_class_prob_list.append(pred)
+                            pred_class_entropy_list.append(entropy)
                             recons_win_cap_img_list.append(recons_win_cap_img) # [(C,H,W), ...]
                             recons_all_cap_img_list.append(recons_all_cap_img) # [(C,H,W), ...]
 
                         ga_iter_matr = np.array(iter_n_recorded)
                         ga_img_matr = np.stack(ga_img_list, axis=0)
                         pred_class_prob_matr = np.stack(pred_class_prob_list)
+                        pred_class_entropy_matr = np.stack(pred_class_entropy_list, axis=0)
                         recons_win_cap_img_matr = np.stack(recons_win_cap_img_list, axis=0)
                         recons_all_cap_img_matr = np.stack(recons_all_cap_img_list, axis=0)
 
@@ -760,6 +782,7 @@ def run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, datas
                         npzfname = 'instance_{}-cap_{}-dim_{}.npz'.format(i, j, k)
                         npzfname = os.path.join(write_dir, npzfname)
                         np.savez(npzfname, iters=ga_iter_matr, images=ga_img_matr, pred=pred_class_prob_matr,
+                                 pred_entropy=pred_class_entropy_matr,
                                  recons_win_cap=recons_win_cap_img_matr,
                                  recons_all_cap=recons_all_cap_img_matr)
 

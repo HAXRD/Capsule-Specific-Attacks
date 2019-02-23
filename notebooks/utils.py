@@ -27,48 +27,33 @@ from matplotlib.patches import Patch
 │   │   ├── max_caps_dim_diff
 │   │   ├── max_norm_diff
 │   │   ├── naive_max_caps_dim
-│   │   ├── naive_max_norm
-│   │   ├── noise_max_caps_dim_diff
-│   │   ├── noise_max_norm_diff
-│   │   ├── noise_naive_max_caps_dim
-│   │   └── noise_naive_max_norm
-│   ├── fmnist
-│   ├── mnist
-│   └── svhn
+│   │   └── naive_max_norm
+│   └── mnist
 └── cnn
     ├── cifar10
     │   ├── evaluate
     │   ├── max_norm_diff
-    │   ├── naive_max_norm
-    │   ├── noise_max_norm_diff
-    │   └── noise_naive_max_norm
-    ├── fmnist
-    ├── mnist
-    └── svhn
+    │   └── naive_max_norm
+    └── mnist
 """
 
 """Dataset classes"""
 MNIST_CATEGORIES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-FMNIST_CATEGORIES = ['t-shirt/top', 'trouser', 'pullover', 'dress', 'coat', 'sandal', 'shirt', 'sneaker', 'bag', 'ankle boot']
-SVHN_CATEGORIES = MNIST_CATEGORIES
 CIFAR10_CATEGORIES = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
 
 categories = {
     'mnist': MNIST_CATEGORIES,
-    'fmnist': FMNIST_CATEGORIES,
-    'svhn': SVHN_CATEGORIES,
     'cifar10': CIFAR10_CATEGORIES
 }
 
 """Define CONSTANTS"""
-AVAILABLE_ITER_NS = [1, 2, 3, 4, 5, 6, 7, 8, 9,
-                     10, 20, 40, 60, 80,
-                     100, 200, 400, 600, 800, 1000]
-NORM_ASPECT_METHODS = ['naive_max_norm', 'max_norm_diff', 'noise_naive_max_norm', 'noise_max_norm_diff']
-DIRECTION_ASPECT_METHODS = ['naive_max_caps_dim', 'max_norm_diff', 'noise_naive_max_caps_dim', 'noise_max_norm_diff']
+AVAILABLE_ITER_NS = [1, 2, 3, 4, 5, 
+                     10, 20, 40, 60, 80, 100]
+NORM_ASPECT_METHODS = ['naive_max_norm', 'max_norm_diff']
+DIRECTION_ASPECT_METHODS = ['naive_max_caps_dim', 'max_norm_diff']
 
 """Set up data directories"""
-data_dir = '/Users/xu/Storage/final_24_step_0.1'
+data_dir = '/Users/xu/Storage/vis'
 
 """Utility functions"""
 def get_model_lvl_dirs(data_dir, model_pattern='*'):
@@ -328,7 +313,7 @@ def compare_Ori_vs_Tar(model_dataset_lvl_dir, obj_type, instance_num, cap_idx,
             if j == 0:
                 ax.set_ylabel(categories[dataset][i])
         
-            xlabel = '(%d:' % int(ori_pred_cl) + ('%.1f,\n' % ori_pred_p) + '%d:' % int(curr_pred_cl) + ('%.1f)' % most_pred_p)
+            xlabel = '(%d:' % int(ori_pred_cl) + ('%.3f,\n' % ori_pred_p) + '%d:' % int(curr_pred_cl) + ('%.3f)' % most_pred_p)
             ax.set_xlabel(xlabel)
 
             # show image
@@ -566,7 +551,7 @@ def compare_mostActiveCap_vs_diffDims(model_dataset_lvl_dir, obj_type, instance_
                 ax.set_title(iter_n)
             if j == 0:
                 ax.set_ylabel(i)
-            xlabel = '(%d:' % int(ori_pred_cl) + ('%.2f,' % ori_pred_p)[1:] + '%d:' % int(most_pred_cl) + ('%.2f)' % most_pred_p)[1:]
+            xlabel = '(%d:' % int(ori_pred_cl) + ('%.3f,' % ori_pred_p)[1:] + '%d:' % int(most_pred_cl) + ('%.3f)' % most_pred_p)[1:]
             ax.set_xlabel(xlabel)
 
             # show image
