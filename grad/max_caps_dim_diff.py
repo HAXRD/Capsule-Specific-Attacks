@@ -78,7 +78,7 @@ def compute_grads(tower_idx):
     caps_dim_diff_list = []
     for cap_dim_list in caps_split_D2_list:
         cap_dim_sum = tf.reduce_sum(cap_dim_list, axis=2) # (?, 1, 1)
-        temp_list = [2 * cap_dim - cap_dim_sum
+        temp_list = [(16 * cap_dim - cap_dim_sum) / 15
                              for cap_dim in cap_dim_list]
         caps_dim_diff_list.append(temp_list)
     # flatten caps_dim_diff_list

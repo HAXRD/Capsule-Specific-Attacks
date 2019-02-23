@@ -62,7 +62,7 @@ def compute_grads(tower_idx):
     
     """Calculate the difference between target tensor and the sum of the rest"""
     caps_norms_sum = tf.reduce_sum(caps_norm_list, axis=1) # (?, 1)
-    caps_norm_diff_list = [2 * caps_norm - caps_norms_sum 
+    caps_norm_diff_list = [(10 * caps_norm - caps_norms_sum) / 9 
                            for caps_norm in caps_norm_list]
     pprint(caps_norm_diff_list)
 
