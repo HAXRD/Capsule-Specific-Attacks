@@ -86,7 +86,8 @@ def _compute_entropy(arr):
         entropy: scalar, the entropy of the given array;
     """
     arr_sum = np.sum(arr)
-    entropy = - np.dot(arr/arr_sum, np.log2(arr))
+    arr_exp = np.exp(arr)
+    entropy = - np.dot(arr_exp/arr_sum, arr)
     return entropy
 
 def get_distributed_dataset(total_batch_size, num_gpus,
