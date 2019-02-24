@@ -550,8 +550,6 @@ def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, i
         print('Number of gradients computed (= n_repeats = number of batches per epoch): ',
               n_repeats)
         
-        # find the reconstruction tensor
-        recons_t = tf.get_collection('tower_%d_recons' % 0)[0]
         batched_labels_t = tf.get_collection('tower_%d_batched_labels' % 0)[0]
 
         # get batched dataset and specs
@@ -583,8 +581,6 @@ def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, i
                         
                         pred_class_prob_list = [] # list of probabilities of classes
                         pred_class_entropy_list = [] # list of probabilities of prediction entropies
-                        recons_win_cap_img_list = [] # list of reconstructed images using the winning capsule
-                        recons_all_cap_img_list = [] # list of reconstructed images using all capsules
                         for img in ga_img_list:
                             pred = sess.run(caps_norms_tensor, feed_dict={batched_images: img}) # (1, 10)
                             pred = np.reshape(pred, -1) # (10,)
@@ -599,30 +595,19 @@ def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, i
                             # all capsules mask
                             all_cap_mask = np.expand_dims(np.array([1.0 for _ in range(10)]), axis=0)
 
-                            recons_win_cap_img = np.squeeze(
-                                sess.run(recons_t, feed_dict={batched_images: img, batched_labels_t: win_cap_mask}), 0)
-                            recons_all_cap_img = np.squeeze(
-                                sess.run(recons_t, feed_dict={batched_images: img, batched_labels_t: all_cap_mask}), 0)
-
                             pred_class_prob_list.append(pred) # [(10,), (10,), ...]
                             pred_class_entropy_list.append(entropy)
-                            recons_win_cap_img_list.append(recons_win_cap_img) # [(C, H, W), ....]
-                            recons_all_cap_img_list.append(recons_all_cap_img) # [(C, H, W), ....]
 
                         ga_iter_matr = np.array(iter_n_recorded)
                         ga_img_matr = np.stack(ga_img_list, axis=0)
                         pred_class_prob_matr = np.stack(pred_class_prob_list)
                         pred_class_entropy_matr = np.stack(pred_class_entropy_list, axis=0)
-                        recons_win_cap_img_matr = np.stack(recons_win_cap_img_list, axis=0)
-                        recons_all_cap_img_matr = np.stack(recons_all_cap_img_list, axis=0)
 
                         # save to npz file
                         npzfname = 'instance_{}-lbl0_{}-lbl1_{}.npz'.format(i, j, k)
                         npzfname = os.path.join(write_dir, npzfname)
                         np.savez(npzfname, iters=ga_iter_matr, images=ga_img_matr, pred=pred_class_prob_matr, 
-                                 pred_entropy=pred_class_prob_matr,
-                                 recons_win_cap=recons_win_cap_img_matr,
-                                 recons_all_cap=recons_all_cap_img_matr)
+                                 pred_entropy=pred_class_entropy_matr)
 
                         print('{0} {1} total:class:gradient = {2:.1f}% ~ {3:.1f}% ~ {4:.1f}%'.format(
                             ' '*5, '-'*5, 
@@ -709,8 +694,6 @@ def run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, datas
         n_repeats = 16 # 16 dimensional vector
         print('Number of gradients computed: ', len(result_grads))
 
-        # find the recons tensor
-        recons_t = tf.get_collection('tower_%d_recons' % 0)[0]
         batched_labels_t = tf.get_collection('tower_%d_batched_labels' % 0)[0]
 
         # Get batched dataset and specs
@@ -742,8 +725,6 @@ def run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, datas
                         
                         pred_class_prob_list = [] # list of (predicted_class, probabilities of predicted class)s
                         pred_class_entropy_list = []
-                        recons_win_cap_img_list = [] # list of reconstructed images using the winning capsule
-                        recons_all_cap_img_list = [] # list of reconstructed images using all capsules
 
                         for img in ga_img_list:
                             pred = sess.run(caps_norms_tensor, feed_dict={batched_images: img}) # (1, 10)
@@ -759,32 +740,19 @@ def run_direction_aspect(num_gpus, total_batch_size, max_epochs, data_dir, datas
                             # all capsules mask
                             all_cap_mask = np.expand_dims(np.array([1.0 for _ in range(10)]), axis=0)
 
-                            recons_win_cap_img = np.squeeze(
-                                sess.run(recons_t, feed_dict={batched_images: img, batched_labels_t: win_cap_mask}), 0)
-                            recons_all_cap_img = np.squeeze(
-                                sess.run(recons_t, feed_dict={batched_images: img, 
-                                batched_labels_t: all_cap_mask}), 0)
-
-
                             pred_class_prob_list.append(pred)
                             pred_class_entropy_list.append(entropy)
-                            recons_win_cap_img_list.append(recons_win_cap_img) # [(C,H,W), ...]
-                            recons_all_cap_img_list.append(recons_all_cap_img) # [(C,H,W), ...]
 
                         ga_iter_matr = np.array(iter_n_recorded)
                         ga_img_matr = np.stack(ga_img_list, axis=0)
                         pred_class_prob_matr = np.stack(pred_class_prob_list)
                         pred_class_entropy_matr = np.stack(pred_class_entropy_list, axis=0)
-                        recons_win_cap_img_matr = np.stack(recons_win_cap_img_list, axis=0)
-                        recons_all_cap_img_matr = np.stack(recons_all_cap_img_list, axis=0)
 
                         # save to npz file
                         npzfname = 'instance_{}-cap_{}-dim_{}.npz'.format(i, j, k)
                         npzfname = os.path.join(write_dir, npzfname)
                         np.savez(npzfname, iters=ga_iter_matr, images=ga_img_matr, pred=pred_class_prob_matr,
-                                 pred_entropy=pred_class_entropy_matr,
-                                 recons_win_cap=recons_win_cap_img_matr,
-                                 recons_all_cap=recons_all_cap_img_matr)
+                                 pred_entropy=pred_class_entropy_matr)
 
                         print('{0} {1} total:class:gradient = {2:.1f}% ~ {3:.1f}% ~ {4:.1f}%'.format(
                             ' '*5, '-'*5, 
