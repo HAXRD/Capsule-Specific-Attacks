@@ -39,7 +39,9 @@ def _single_process(image, label, specs, cropped_size):
                 # random cropping 
                 image = tf.random_crop(image, [cropped_size, cropped_size, 3])
                 # random flipping
-                # image = tf.image.random_flip_left_right(image)
+                image = tf.image.random_flip_left_right(image)
+                image = tf.image.random_brightness(image, max_delta=63)
+                image = tf.image.random_contrast(image, lower=0.2, upper=0.8)
             elif specs['split'] == 'test':
                 # central cropping
                 image = tf.image.resize_image_with_crop_or_pad(image, cropped_size, cropped_size)
