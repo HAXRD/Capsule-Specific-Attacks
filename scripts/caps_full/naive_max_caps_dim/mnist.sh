@@ -12,7 +12,8 @@ TOTAL_BATCH_SIZE=1
 MODEL=cap
 MODE=naive_max_caps_dim
 DATASET=mnist
-MAX_EPOCHS=500
+MAX_EPOCHS=20
 SUMMARY_DIR=/home/xuc/projects/def-sageev/xuc/$MODEL/$DATASET
 
-python $REPO_DIR/experiment.py --total_batch_size=$TOTAL_BATCH_SIZE --mode=$MODE --data_dir=$REPO_DIR/data/$DATASET/ --dataset=$DATASET --summary_dir=$SUMMARY_DIR
+python $REPO_DIR/experiment.py --total_batch_size=$TOTAL_BATCH_SIZE --mode=$MODE --data_dir=$REPO_DIR/data/$DATASET/ --dataset=$DATASET --summary_dir=$SUMMARY_DIR --max_epochs=$MAX_EPOCHS
+
