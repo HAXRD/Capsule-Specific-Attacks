@@ -1,39 +1,34 @@
 # DeepDream 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-## Introduction
-This repository demonstrates the comparisons on DeepDream between several different architectures. Due to the fact that different trained baseline models have different validation/test accuracy, we tried to keep those accuraies as close as possible. The target test models are listed as below:
 
-| Mode            | Dataset  | CNN      | Cap      |
-|-----------------|----------|----------|----------|
-| train           | cifar10  | done     | done     |
-|                 | mnist    | done     | done     |
-| test            | cifar10  | done     | done     |
-|                 | mnist    | done     | done     |
-| naive           | cifar10  | done     | done     |
-|                 | mnist    | done     | done     |
-| multiscale      | cifar10  | done     | done     |
-|                 | mnist    | done     | done     |
-| naive_dream     | mnist    | done     | done     |
+Code for thesis (second part): [Adversarial Attacks on Capsule Neural Networks](https://github.com/XxuChen/Adversarial-Attack-on-CapsNets)
 
-## Requirements
+## Quick Overview
+How to interpret the visualization can be found in thesis mentioned above.
 
-* Tensorflow-GPU
-* 1 GPU
+More detailed results can be found in folder `scripts`. 
 
-## Download dataset and ckpts
+### Naive Max Norm (MNIST Caps)
+![NMN](notebooks/capsule_specific_attacks/norm_based/tight_layout/mnist_cap_naive_max_norm_ins10_cap7.png)
+### Max Norm Diff (MNIST Caps)
+![MND](notebooks/capsule_specific_attacks/norm_based/tight_layout/mnist_cap_max_norm_diff_ins10_cap7.png)
+### Naive Max Caps Dim (MNIST Caps)
+![NMCD](notebooks/capsule_specific_attacks/dim_based/tight_layout/mnist_cap_naive_max_caps_dim_ins3_cap5.png)
+### Max Caps Dim Diff (MNIST Caps)
+![MCDD](notebooks/capsule_specific_attacks/dim_based/tight_layout/mnist_cap_max_caps_dim_diff_ins3_cap5.png)
 
-* Download and extract cifar10 binary version to $DATA_DIR/
-from https://www.cs.toronto.edu/~kriz/cifar.html
-* Download mnist to $DATA_DIR/mnist with 
-https://storage.googleapis.com/tensorflow/tf-keras-datasets/mnist.npz
+## Prerequisite
+- Python3
+- Tensorflow
+- GPU
+- NumPy
 
-* Download and extract capsule ckpts trained on mnist dataset to $SUMMARY_DIR/
-from https://storage.googleapis.com/ckpts/cap_mnist.zip
-* Download and extract cnn ckpts trained on mnist dataset to $SUMMARY_DIR/
-from https://storage.googleapis.com/ckpts/cnn_mnist.zip
+## Download Datasets
+```
+chmod +x download_data.sh && ./download_data.sh
+```
 
 ## Inspect model parameters
-
 ```
 python experiment -h
 ```
