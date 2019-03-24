@@ -54,7 +54,7 @@ def evaluate(logits, scope, loss_type):
         total_loss: total loss of model.
         num_correct_per_batch: scalar, number of correct predictions per batch.
     """
-    labels = tf.get_default_graph().get_tensor_by_name(scope + 'batched_labels:0')
+    labels = tf.get_default_graph().get_tensor_by_name(scope + 'batched_labels:0') # 'tower_{i}/batched_labels:0'
     with tf.name_scope('loss'): # 'tower_i/loss'
         if loss_type == 'softmax':
             classification_loss = tf.nn.softmax_cross_entropy_with_logits(
@@ -70,7 +70,6 @@ def evaluate(logits, scope, loss_type):
     
     tf.summary.scalar('batch_classification_loss', batch_classification_loss)
 
-    # ??? Could be wrong.
     all_losses = tf.get_collection('losses', scope)
     total_loss = tf.add_n(all_losses, name='total_loss')
     tf.summary.scalar('total_loss', total_loss)
@@ -81,8 +80,7 @@ def evaluate(logits, scope, loss_type):
             lbls = tf.argmax(labels, axis=1, output_type=tf.int32)
             correct = tf.cast(tf.equal(preds, lbls), tf.float32)
             num_correct_per_batch = tf.reduce_sum(correct)
-        with tf.name_scope('accuracy'):
-            accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
+            accuracy = tf.reduce_mean(correct)
+    tf.summary.scalar('correct_predictions_per_batch', num_correct_per_batch)
     tf.summary.scalar('accuracy', accuracy)
-    tf.summary.scalar('correct_prediction_per_batch', num_correct_per_batch)
     return total_loss, num_correct_per_batch, accuracy

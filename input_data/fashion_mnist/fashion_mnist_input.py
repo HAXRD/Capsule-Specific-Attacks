@@ -1,4 +1,5 @@
 # Copyright 2018 Xu Chen All Rights Reserved.
+# Credit https://github.com/zalandoresearch/fashion-mnist#get-the-data
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,46 +13,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import os 
 import tensorflow as tf 
-
-from input_data.cifar10 import load_cifar10_data
+import numpy as np 
+import os 
+import random
+from input_data.fashion_mnist import load_fashion_mnist
 
 def _single_process(image, label, specs, cropped_size):
-    """A function to parse each record into an image and an label.
-
-    Args:
-        image: numpy array image object (28, 28, 3), 0 ~ 255 uint8;
+    """Map function to process single instance of dataset object.
+    
+    Args: 
+        image: numpy array image object, (28, 28), 0 ~ 255 uint8;
         label: numpy array label, (,);
         specs: dataset specifications;
-        cropped_size: image size after cropping.
+        cropped_size: image size after cropping
     Returns:
-        feature: a dictionary contains an image instance and a label instance.    
+        feature: a dictionary contains image, label, recons_image, recons_label.
     """
+    image = tf.expand_dims(image, -1) # (HWC)
     if specs['distort']:
         if cropped_size <= specs['image_size']:
+            # resize image
+            image = tf.image.resize_images(image, [cropped_size, cropped_size])
             if specs['split'] == 'train':
-                # random cropping 
-                image = tf.random_crop(image, [cropped_size, cropped_size, 3])
                 # random flipping
                 image = tf.image.random_flip_left_right(image)
-                image = tf.image.random_brightness(image, max_delta=63)
-                image = tf.image.random_contrast(image, lower=0.2, upper=0.8)
-            elif specs['split'] == 'test':
-                # central cropping
-                image = tf.image.resize_image_with_crop_or_pad(image, cropped_size, cropped_size)
     # convert from 0 ~ 255 to 0. ~ 1.
     image = tf.cast(image, tf.float32) * (1. / 255.)
     # transpose image into (CHW)
     image = tf.transpose(image, [2, 0, 1])
 
     feature = {
-        'image': image,
+        'image': image, 
         'label': tf.one_hot(label, 10)
     }
     return feature
@@ -72,7 +65,7 @@ def _feature_process(feature):
 
 def inputs(total_batch_size, num_gpus, max_epochs, cropped_size,
            data_dir, split, distort=True):
-    """Construct inputs for cifar10 dataset.
+    """Construct inputs for fashion mnist dataset.
 
     Args:
         total_batch_size: total number of images per batch;
@@ -90,7 +83,7 @@ def inputs(total_batch_size, num_gpus, max_epochs, cropped_size,
 
     """Dataset specs"""
     specs = {
-        'split': split,
+        'split': split, 
         'total_size': None, # total size of one epoch
         'steps_per_epoch': None, # number of steps per epoch
 
@@ -99,42 +92,43 @@ def inputs(total_batch_size, num_gpus, max_epochs, cropped_size,
         'batch_size': int(total_batch_size / num_gpus),
         'max_epochs': int(max_epochs), # number of epochs to repeat
 
-        'image_size': 32,
-        'depth': 3,
+        'image_size': 28,
+        'depth': 1,
         'num_classes': 10,
         'distort': distort
     }
-    
+
     if cropped_size == None:
         cropped_size = specs['image_size']
     assert cropped_size <= specs['image_size']
-
-    """Load data from mat file"""
-    images, labels = load_cifar10_data.load_cifar10(data_dir, split)
-    # images: 0 ~ 255 uint8 (?, 32, 32, 3)
-    # labels: 0 ~ 9 uint8   (?, 1)
+    
+    """Load data from downloaded byte file"""
+    images, labels = load_fashion_mnist.load_fashion_mnist(data_dir, split)
+    # image: 0 ~ 255 uint8
+    # label: 0 ~ 9 uint8
     assert images.shape[0] == labels.shape[0]
     specs['total_size'] = int(images.shape[0])
-    specs['steps_per_epoch'] = int(specs['total_size']) // specs['total_batch_size']
+    specs['steps_per_epoch'] = int(specs['total_size'] // specs['total_batch_size'])
 
     """Process dataset object"""
     # read from numpy array
-    dataset = tf.data.Dataset.from_tensor_slices((images, labels))
+    dataset = tf.data.Dataset.from_tensor_slices((images, labels)) # ((28, 28), (,))
     # prefetch examples
     dataset = dataset.prefetch(
         buffer_size=specs['batch_size']*specs['num_gpus']*2)
     # shuffle (if 'train') and repeat 'max_epochs'
     if split == 'train':
         dataset = dataset.apply(tf.contrib.data.shuffle_and_repeat(
-            buffer_size=specs['batch_size']*specs['num_gpus']*10,
+            buffer_size=specs['batch_size']*specs['num_gpus']*10, 
             count=specs['max_epochs']))
     else:
         dataset = dataset.repeat(specs['max_epochs'])
-    # process single example
+    # process single example 
     dataset = dataset.map(
         lambda image, label: _single_process(image, label, specs, cropped_size),
         num_parallel_calls=3)
-    specs['image_size'] = cropped_size
+    specs['image_size'] = cropped_size # after processed single example, the image size
+                                       # will be resized to cropped size
     # stack into batches
     batched_dataset = dataset.batch(specs['batch_size'])
     # process into feature
