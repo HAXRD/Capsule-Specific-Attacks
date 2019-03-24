@@ -15,7 +15,7 @@ IMAGE_SIZE = 28
 BLOCK_SIZE = IMAGE_SIZE + 2*EDGE_SIZE
 
 def compare_Ori_vs_Tar_tight(model_dataset_lvl_dir, obj_type, instance_num, cap_idx, 
-                             diffOris_vs_sameTar=True, channel_n=3, 
+                             diffOris_vs_sameTar=True, 
                              selected_iter_ns=utils.AVAILABLE_ITER_NS):
     
     dataset = os.path.basename(model_dataset_lvl_dir)
@@ -81,35 +81,33 @@ def compare_Ori_vs_Tar_tight(model_dataset_lvl_dir, obj_type, instance_num, cap_
 
 if __name__ == '__main__':
     data_dir = '/Users/xu/Storage/vis'
+    instance_num = 10
+    cap_idx = 7
     model_lvl_dir = utils.get_model_lvl_dirs(data_dir, 'cap')[0]
     model_dataset_lvl_dir = utils.get_dataset_lvl_dirs(model_lvl_dir, 'mnist')[0]
     compare_Ori_vs_Tar_tight(model_dataset_lvl_dir, 
                             obj_type='naive_max_norm', 
-                            instance_num=3, 
-                            cap_idx=5,
-                            channel_n=1,
+                            instance_num=instance_num, 
+                            cap_idx=cap_idx,
                             diffOris_vs_sameTar=True)
 
     compare_Ori_vs_Tar_tight(model_dataset_lvl_dir, 
                             obj_type='max_norm_diff', 
-                            instance_num=3, 
-                            cap_idx=5,
-                            channel_n=1,
+                            instance_num=instance_num, 
+                            cap_idx=cap_idx,
                             diffOris_vs_sameTar=True)
 
     model_lvl_dir = utils.get_model_lvl_dirs(data_dir, 'cnn')[0]
     model_dataset_lvl_dir = utils.get_dataset_lvl_dirs(model_lvl_dir, 'mnist')[0]
     compare_Ori_vs_Tar_tight(model_dataset_lvl_dir, 
                             obj_type='naive_max_norm', 
-                            instance_num=3, 
-                            cap_idx=5,
-                            channel_n=1,
+                            instance_num=instance_num, 
+                            cap_idx=cap_idx,
                             diffOris_vs_sameTar=True)
     compare_Ori_vs_Tar_tight(model_dataset_lvl_dir, 
                             obj_type='max_norm_diff', 
-                            instance_num=3, 
-                            cap_idx=5,
-                            channel_n=1,
+                            instance_num=instance_num, 
+                            cap_idx=cap_idx,
                             diffOris_vs_sameTar=True)
 
     ######
@@ -117,29 +115,25 @@ if __name__ == '__main__':
     model_dataset_lvl_dir = utils.get_dataset_lvl_dirs(model_lvl_dir, 'cifar10')[0]
     compare_Ori_vs_Tar_tight(model_dataset_lvl_dir, 
                             obj_type='naive_max_norm', 
-                            instance_num=3, 
-                            cap_idx=5,
-                            channel_n=1,
+                            instance_num=instance_num, 
+                            cap_idx=cap_idx,
                             diffOris_vs_sameTar=True)
 
     compare_Ori_vs_Tar_tight(model_dataset_lvl_dir, 
                             obj_type='max_norm_diff', 
-                            instance_num=3, 
-                            cap_idx=5,
-                            channel_n=1,
+                            instance_num=instance_num, 
+                            cap_idx=cap_idx,
                             diffOris_vs_sameTar=True)
 
     model_lvl_dir = utils.get_model_lvl_dirs(data_dir, 'cnn')[0]
     model_dataset_lvl_dir = utils.get_dataset_lvl_dirs(model_lvl_dir, 'cifar10')[0]
     compare_Ori_vs_Tar_tight(model_dataset_lvl_dir, 
                             obj_type='naive_max_norm', 
-                            instance_num=3, 
-                            cap_idx=5,
-                            channel_n=1,
+                            instance_num=instance_num, 
+                            cap_idx=cap_idx,
                             diffOris_vs_sameTar=True)
     compare_Ori_vs_Tar_tight(model_dataset_lvl_dir, 
                             obj_type='max_norm_diff', 
-                            instance_num=3, 
-                            cap_idx=5,
-                            channel_n=1,
+                            instance_num=instance_num, 
+                            cap_idx=cap_idx,
                             diffOris_vs_sameTar=True)

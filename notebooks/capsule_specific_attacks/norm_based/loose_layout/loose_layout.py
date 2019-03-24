@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import utils
 
 def compare_Ori_vs_Tar(model_dataset_lvl_dir, obj_type, instance_num, cap_idx, 
-                       diffOris_vs_sameTar=True, channel_n=3, 
+                       diffOris_vs_sameTar=True, 
                        selected_iter_ns=utils.AVAILABLE_ITER_NS):
     
     dataset = os.path.basename(model_dataset_lvl_dir)
@@ -92,7 +92,7 @@ def compare_Ori_vs_Tar(model_dataset_lvl_dir, obj_type, instance_num, cap_idx,
         fig.savefig(os.path.join(save_dir, str(i)))
 
 def compare_Ori_vs_Tar_Distribution(model_dataset_lvl_dir, obj_type, instance_num, cap_idx, 
-                                    diffOris_vs_sameTar=True, channel_n=3, 
+                                    diffOris_vs_sameTar=True, 
                                     selected_iter_ns=utils.AVAILABLE_ITER_NS):
     dataset = os.path.basename(model_dataset_lvl_dir)
     model = model_dataset_lvl_dir.split('/')[-2]
@@ -156,6 +156,8 @@ def compare_Ori_vs_Tar_Distribution(model_dataset_lvl_dir, obj_type, instance_nu
 
 
 if __name__ == '__main__':
+    selected_iter_ns = [1, 2, 4,
+                        10, 20, 40, 80, 100]
     data_dir = '/Users/xu/Storage/vis'
     model_lvl_dir = utils.get_model_lvl_dirs(data_dir, 'cap')[0]
     model_dataset_lvl_dir = utils.get_dataset_lvl_dirs(model_lvl_dir, 'mnist')[0]
@@ -163,23 +165,27 @@ if __name__ == '__main__':
                        obj_type='naive_max_norm', 
                        instance_num=3, 
                        cap_idx=5, 
-                       diffOris_vs_sameTar=True)
+                       diffOris_vs_sameTar=True,
+                       selected_iter_ns=selected_iter_ns)
     compare_Ori_vs_Tar_Distribution(model_dataset_lvl_dir, 
                        obj_type='naive_max_norm', 
                        instance_num=3, 
                        cap_idx=5, 
-                       diffOris_vs_sameTar=True)
+                       diffOris_vs_sameTar=True,
+                       selected_iter_ns=selected_iter_ns)
     
     compare_Ori_vs_Tar(model_dataset_lvl_dir, 
                        obj_type='max_norm_diff', 
                        instance_num=3, 
                        cap_idx=5, 
-                       diffOris_vs_sameTar=True)
+                       diffOris_vs_sameTar=True,
+                       selected_iter_ns=selected_iter_ns)
     compare_Ori_vs_Tar_Distribution(model_dataset_lvl_dir, 
                        obj_type='max_norm_diff', 
                        instance_num=3, 
                        cap_idx=5, 
-                       diffOris_vs_sameTar=True)
+                       diffOris_vs_sameTar=True,
+                       selected_iter_ns=selected_iter_ns)
 
     model_lvl_dir = utils.get_model_lvl_dirs(data_dir, 'cnn')[0]
     model_dataset_lvl_dir = utils.get_dataset_lvl_dirs(model_lvl_dir, 'mnist')[0]
@@ -187,23 +193,27 @@ if __name__ == '__main__':
                        obj_type='naive_max_norm', 
                        instance_num=3, 
                        cap_idx=5, 
-                       diffOris_vs_sameTar=True)
+                       diffOris_vs_sameTar=True,
+                       selected_iter_ns=selected_iter_ns)
     compare_Ori_vs_Tar_Distribution(model_dataset_lvl_dir, 
                        obj_type='naive_max_norm', 
                        instance_num=3, 
                        cap_idx=5, 
-                       diffOris_vs_sameTar=True)
+                       diffOris_vs_sameTar=True,
+                       selected_iter_ns=selected_iter_ns)
     
     compare_Ori_vs_Tar(model_dataset_lvl_dir, 
                        obj_type='max_norm_diff', 
                        instance_num=3, 
                        cap_idx=5, 
-                       diffOris_vs_sameTar=True)
+                       diffOris_vs_sameTar=True,
+                       selected_iter_ns=selected_iter_ns)
     compare_Ori_vs_Tar_Distribution(model_dataset_lvl_dir, 
                        obj_type='max_norm_diff', 
                        instance_num=3, 
                        cap_idx=5, 
-                       diffOris_vs_sameTar=True)
+                       diffOris_vs_sameTar=True,
+                       selected_iter_ns=selected_iter_ns)
 
     ####
     model_lvl_dir = utils.get_model_lvl_dirs(data_dir, 'cap')[0]
@@ -212,23 +222,27 @@ if __name__ == '__main__':
                        obj_type='naive_max_norm', 
                        instance_num=3, 
                        cap_idx=5, 
-                       diffOris_vs_sameTar=True)
+                       diffOris_vs_sameTar=True,
+                       selected_iter_ns=selected_iter_ns)
     compare_Ori_vs_Tar_Distribution(model_dataset_lvl_dir, 
                        obj_type='naive_max_norm', 
                        instance_num=3, 
                        cap_idx=5, 
-                       diffOris_vs_sameTar=True)
+                       diffOris_vs_sameTar=True,
+                       selected_iter_ns=selected_iter_ns)
     
     compare_Ori_vs_Tar(model_dataset_lvl_dir, 
                        obj_type='max_norm_diff', 
                        instance_num=3, 
                        cap_idx=5, 
-                       diffOris_vs_sameTar=True)
+                       diffOris_vs_sameTar=True,
+                       selected_iter_ns=selected_iter_ns)
     compare_Ori_vs_Tar_Distribution(model_dataset_lvl_dir, 
                        obj_type='max_norm_diff', 
                        instance_num=3, 
                        cap_idx=5, 
-                       diffOris_vs_sameTar=True)
+                       diffOris_vs_sameTar=True,
+                       selected_iter_ns=selected_iter_ns)
 
     model_lvl_dir = utils.get_model_lvl_dirs(data_dir, 'cnn')[0]
     model_dataset_lvl_dir = utils.get_dataset_lvl_dirs(model_lvl_dir, 'cifar10')[0]
@@ -236,20 +250,24 @@ if __name__ == '__main__':
                        obj_type='naive_max_norm', 
                        instance_num=3, 
                        cap_idx=5, 
-                       diffOris_vs_sameTar=True)
+                       diffOris_vs_sameTar=True,
+                       selected_iter_ns=selected_iter_ns)
     compare_Ori_vs_Tar_Distribution(model_dataset_lvl_dir, 
                        obj_type='naive_max_norm', 
                        instance_num=3, 
                        cap_idx=5, 
-                       diffOris_vs_sameTar=True)
+                       diffOris_vs_sameTar=True,
+                       selected_iter_ns=selected_iter_ns)
     
     compare_Ori_vs_Tar(model_dataset_lvl_dir, 
                        obj_type='max_norm_diff', 
                        instance_num=3, 
                        cap_idx=5, 
-                       diffOris_vs_sameTar=True)
+                       diffOris_vs_sameTar=True,
+                       selected_iter_ns=selected_iter_ns)
     compare_Ori_vs_Tar_Distribution(model_dataset_lvl_dir, 
                        obj_type='max_norm_diff', 
                        instance_num=3, 
                        cap_idx=5, 
-                       diffOris_vs_sameTar=True)
+                       diffOris_vs_sameTar=True,
+                       selected_iter_ns=selected_iter_ns)
