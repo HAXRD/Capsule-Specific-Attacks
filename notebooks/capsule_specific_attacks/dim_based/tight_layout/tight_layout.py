@@ -57,30 +57,37 @@ def compare_targetCap_vs_diffDims(model_dataset_lvl_dir, obj_type, instance_num,
                     canvas[i*BLOCK_SIZE:(i+1)*BLOCK_SIZE, j*BLOCK_SIZE:(j+1)*BLOCK_SIZE, 1] = np.zeros((BLOCK_SIZE, BLOCK_SIZE))
                     canvas[i*BLOCK_SIZE:(i+1)*BLOCK_SIZE, j*BLOCK_SIZE:(j+1)*BLOCK_SIZE, 2] = np.zeros((BLOCK_SIZE, BLOCK_SIZE))
             canvas[i*BLOCK_SIZE+EDGE_SIZE:(i+1)*BLOCK_SIZE-EDGE_SIZE, j*BLOCK_SIZE+EDGE_SIZE:(j+1)*BLOCK_SIZE-EDGE_SIZE] = img
-    out_fname = "{}_{}_{}_ins{}_cap{}.png".format(dataset, model, obj_type, instance_num, cap_idx)
-    scipy.misc.imsave(out_fname, canvas)
+
+    ins_cap_dir = "ins{}_cap{}".format(instance_num, cap_idx)
+    if not os.path.exists(ins_cap_dir):
+        os.makedirs(ins_cap_dir)
+
+    out_fname = "{}_{}_{}.png".format(dataset, model, obj_type)
+    scipy.misc.imsave(os.path.join(ins_cap_dir, out_fname), canvas)
 
 if __name__ == '__main__':
     data_dir = '/Users/xu/Storage/vis'
+    instance_num = 3
+    cap_idx = 7
     model_lvl_dir = utils.get_model_lvl_dirs(data_dir, 'cap')[0]
     model_dataset_lvl_dir = utils.get_dataset_lvl_dirs(model_lvl_dir, 'mnist')[0]
     compare_targetCap_vs_diffDims(model_dataset_lvl_dir, 
                                   obj_type='naive_max_caps_dim', 
-                                  instance_num=3, 
-                                  cap_idx=5)
+                                  instance_num=instance_num, 
+                                  cap_idx=cap_idx)
     compare_targetCap_vs_diffDims(model_dataset_lvl_dir, 
                                   obj_type='max_caps_dim_diff', 
-                                  instance_num=3, 
-                                  cap_idx=5)
+                                  instance_num=instance_num, 
+                                  cap_idx=cap_idx)
     ######
     model_lvl_dir = utils.get_model_lvl_dirs(data_dir, 'cap')[0]
     model_dataset_lvl_dir = utils.get_dataset_lvl_dirs(model_lvl_dir, 'cifar10')[0]
     compare_targetCap_vs_diffDims(model_dataset_lvl_dir, 
                                   obj_type='naive_max_caps_dim', 
-                                  instance_num=3, 
-                                  cap_idx=5)
+                                  instance_num=instance_num, 
+                                  cap_idx=cap_idx)
     compare_targetCap_vs_diffDims(model_dataset_lvl_dir, 
                                   obj_type='max_caps_dim_diff', 
-                                  instance_num=3, 
-                                  cap_idx=5)
+                                  instance_num=instance_num, 
+                                  cap_idx=cap_idx)
     

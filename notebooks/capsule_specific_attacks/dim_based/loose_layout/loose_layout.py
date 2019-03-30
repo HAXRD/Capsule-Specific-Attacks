@@ -23,9 +23,13 @@ def compare_targetCap_vs_diffDims(model_dataset_lvl_dir, obj_type, instance_num,
 
     load_dir = utils.get_load_dir(model_dataset_lvl_dir, obj_type)
 
-    save_dir = "{}_{}_{}_ins{}_cap{}".format(dataset, model, obj_type, instance_num, cap_idx)
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
+    ins_cap_dir = "ins{}_cap{}".format(instance_num, cap_idx)
+    if not os.path.exists(ins_cap_dir):
+        os.makedirs(ins_cap_dir)
+
+    save_dir = "{}_{}_{}".format(dataset, model, obj_type)
+    if not os.path.exists(os.path.join(ins_cap_dir, save_dir)):
+        os.makedirs(os.path.join(ins_cap_dir, save_dir))
 
     for i in range(nrows):
         fig, axes = plt.subplots(nrows=1, ncols=ncols, figsize=(ncols*1.4, 1.4))
@@ -73,7 +77,7 @@ def compare_targetCap_vs_diffDims(model_dataset_lvl_dir, obj_type, instance_num,
             else:
                 ax.imshow(img, cmap='gray')
         plt.tight_layout()
-        fig.savefig(os.path.join(save_dir, str(i)))
+        fig.savefig(os.path.join(ins_cap_dir, save_dir, str(i)))
 
 def compare_targetCap_vs_diffDims_Distribution(model_dataset_lvl_dir, obj_type, instance_num, cap_idx,
                                                selected_iter_ns=utils.AVAILABLE_ITER_NS):
@@ -89,9 +93,13 @@ def compare_targetCap_vs_diffDims_Distribution(model_dataset_lvl_dir, obj_type, 
 
     load_dir = utils.get_load_dir(model_dataset_lvl_dir, obj_type)
 
-    save_dir = "{}_{}_{}_ins{}_cap{}".format(dataset, model, obj_type, instance_num, cap_idx)
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
+    ins_cap_dir = "ins{}_cap{}".format(instance_num, cap_idx)
+    if not os.path.exists(ins_cap_dir):
+        os.makedirs(ins_cap_dir)
+
+    save_dir = "{}_{}_{}".format(dataset, model, obj_type)
+    if not os.path.exists(os.path.join(ins_cap_dir, save_dir)):
+        os.makedirs(os.path.join(ins_cap_dir, save_dir))
     
     for i in range(nrows):
         fig, axes = plt.subplots(nrows=1, ncols=ncols, figsize=(ncols*2.0, 2.0))
@@ -132,7 +140,7 @@ def compare_targetCap_vs_diffDims_Distribution(model_dataset_lvl_dir, obj_type, 
             if j == 0:
                 ax.set_ylabel(i)
         plt.tight_layout()
-        fig.savefig(os.path.join(save_dir, str(i)+'_distr'))
+        fig.savefig(os.path.join(ins_cap_dir, save_dir, str(i)+'_distr'))
         plt.close()
 
 
@@ -140,27 +148,28 @@ if __name__ == '__main__':
     data_dir = '/Users/xu/Storage/vis'
     selected_iter_ns = [1, 2, 4,
                         10, 20, 40, 80, 100]
+    instance_num=3
     cap_idx=7
     model_lvl_dir = utils.get_model_lvl_dirs(data_dir, 'cap')[0]
     model_dataset_lvl_dir = utils.get_dataset_lvl_dirs(model_lvl_dir, 'mnist')[0]
     compare_targetCap_vs_diffDims(model_dataset_lvl_dir,
                                   obj_type='naive_max_caps_dim',
-                                  instance_num=3,
+                                  instance_num=instance_num,
                                   cap_idx=cap_idx,
                                   selected_iter_ns=selected_iter_ns)
     compare_targetCap_vs_diffDims_Distribution(model_dataset_lvl_dir,
                                                obj_type='naive_max_caps_dim',
-                                               instance_num=3,
+                                               instance_num=instance_num,
                                                cap_idx=cap_idx,
                                                selected_iter_ns=selected_iter_ns)
     compare_targetCap_vs_diffDims(model_dataset_lvl_dir,
                                   obj_type='max_caps_dim_diff',
-                                  instance_num=3,
+                                  instance_num=instance_num,
                                   cap_idx=cap_idx,
                                   selected_iter_ns=selected_iter_ns)
     compare_targetCap_vs_diffDims_Distribution(model_dataset_lvl_dir,
                                                obj_type='max_caps_dim_diff',
-                                               instance_num=3,
+                                               instance_num=instance_num,
                                                cap_idx=cap_idx,
                                                selected_iter_ns=selected_iter_ns)
     ###
@@ -168,22 +177,22 @@ if __name__ == '__main__':
     model_dataset_lvl_dir = utils.get_dataset_lvl_dirs(model_lvl_dir, 'cifar10')[0]
     compare_targetCap_vs_diffDims(model_dataset_lvl_dir,
                                   obj_type='naive_max_caps_dim',
-                                  instance_num=3,
+                                  instance_num=instance_num,
                                   cap_idx=cap_idx,
                                   selected_iter_ns=selected_iter_ns)
     compare_targetCap_vs_diffDims_Distribution(model_dataset_lvl_dir,
                                                obj_type='naive_max_caps_dim',
-                                               instance_num=3,
+                                               instance_num=instance_num,
                                                cap_idx=cap_idx,
                                                selected_iter_ns=selected_iter_ns)
     compare_targetCap_vs_diffDims(model_dataset_lvl_dir,
                                   obj_type='max_caps_dim_diff',
-                                  instance_num=3,
+                                  instance_num=instance_num,
                                   cap_idx=cap_idx,
                                   selected_iter_ns=selected_iter_ns)
     compare_targetCap_vs_diffDims_Distribution(model_dataset_lvl_dir,
                                                obj_type='max_caps_dim_diff',
-                                               instance_num=3,
+                                               instance_num=instance_num,
                                                cap_idx=cap_idx,
                                                selected_iter_ns=selected_iter_ns)
     
