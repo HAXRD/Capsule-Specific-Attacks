@@ -1,41 +1,9 @@
-# Capsule Specific Attack Visualization Analysis
-In capsule-specific attacks, we retrained a _CNN_ model and a full _CapsNet_
-with sub-network on MNIST and CIFAR10 for 500 epochs. There were no data
-deformations applied except some cropping operations in this set of experiments.
-For MNIST, the image size is 28 $\times$ 28. For CIFAR10, the image size is
-cropped to 28 $\times$ 28 $\times$ 3 (random cropping for training set and
-central cropping for test set).
 
-In this file, we include two types of layouts, **Loose Layout** and
-**Tight Layout**, for possible combinations of different **dataset**, 
-**model type**, and **attack methods**. For detailed image-distribution
-visualizations, refer to **Loose Layout** sections. For quick overview of
-visualizations, navigate to **Tight Layout** sections.
-
-To keep visualizations of different methods comparable, the following discussions all use the same instance number and capsule selection settings (instance_num=3, cap_idx=7), that means, the figures you see below are mostly using the same original images. 
-
-## Abbreviations
-
-### Methods
-#### Norm Based
-- **NMN**: Naively maximizing target capsule's norm.
-- **MND**: Maximizing the difference between target capsule's norm and the rest capsules' norm.
-#### Dimension Based
-- **NMCD**: Naively maximizing a dimension of the target capsule.
-- **MCDD**: Maximizing the different between a dimension and the rest dimensions of the target capsule.
-
-### Comparison Types
-- **Same Origins vs Different Targets**: we use the same original image as the base image, then set different capsules as target class to push the base image into different target classes.
-- **Different Origins vs Same Target**: we use different images as base images, then set a same capsule as target class to push the different base images into the same target class.
+# More Images
 
 Table of Content
 <!--ts-->
-- [Capsule Specific Attack Visualization Analysis](#capsule-specific-attack-visualization-analysis)
-  - [Abbreviations](#abbreviations)
-    - [Methods](#methods)
-      - [Norm Based](#norm-based)
-      - [Dimension Based](#dimension-based)
-    - [Comparison Types](#comparison-types)
+- [More Images](#more-images)
   - [Norm Based Attacks](#norm-based-attacks)
     - [Same Origin vs Different Targets](#same-origin-vs-different-targets)
       - [Loose Layout](#loose-layout)
@@ -43,6 +11,10 @@ Table of Content
         - [MNSIT CNN MND (NBA SOvsDT LL)](#mnsit-cnn-mnd-nba-sovsdt-ll)
         - [MNSIT CAPS NMN (NBA SOvsDT LL)](#mnsit-caps-nmn-nba-sovsdt-ll)
         - [MNSIT CAPS MND (NBA SOvsDT LL)](#mnsit-caps-mnd-nba-sovsdt-ll)
+        - [CIFAR10 CNN NMN (NBA SOvsDT LL)](#cifar10-cnn-nmn-nba-sovsdt-ll)
+        - [CIFAR10 CNN MND (NBA SOvsDT LL)](#cifar10-cnn-mnd-nba-sovsdt-ll)
+        - [CIFAR10 CAPS NMN (NBA SOvsDT LL)](#cifar10-caps-nmn-nba-sovsdt-ll)
+        - [CIFAR10 CAPS MND (NBA SOvsDT LL)](#cifar10-caps-mnd-nba-sovsdt-ll)
       - [Tight Layout](#tight-layout)
         - [MNIST CNN NMN (NBA SOvsDT TL)](#mnist-cnn-nmn-nba-sovsdt-tl)
         - [MNIST CNN MND (NBA SOvsDT TL)](#mnist-cnn-mnd-nba-sovsdt-tl)
@@ -58,6 +30,10 @@ Table of Content
         - [MNSIT CNN MND (NBA DOvsST LL)](#mnsit-cnn-mnd-nba-dovsst-ll)
         - [MNSIT CAPS NMN (NBA DOvsST LL)](#mnsit-caps-nmn-nba-dovsst-ll)
         - [MNSIT CAPS MND (NBA DOvsST LL)](#mnsit-caps-mnd-nba-dovsst-ll)
+        - [CIFAR10 CNN NMN (NBA DOvsST LL)](#cifar10-cnn-nmn-nba-dovsst-ll)
+        - [CIFAR10 CNN MND (NBA DOvsST LL)](#cifar10-cnn-mnd-nba-dovsst-ll)
+        - [CIFAR10 CAPS NMN (NBA DOvsST LL)](#cifar10-caps-nmn-nba-dovsst-ll)
+        - [CIFAR10 CAPS MND (NBA DOvsST LL)](#cifar10-caps-mnd-nba-dovsst-ll)
       - [Tight Layout](#tight-layout-1)
         - [MNIST CNN NMN (NBA DOvsST TL)](#mnist-cnn-nmn-nba-dovsst-tl)
         - [MNIST CNN MND (NBA DOvsST TL)](#mnist-cnn-mnd-nba-dovsst-tl)
@@ -71,31 +47,17 @@ Table of Content
     - [Loose Layout](#loose-layout-2)
       - [MNIST CAPS NMCD (DBA LL)](#mnist-caps-nmcd-dba-ll)
       - [MNIST CAPS MCDD (DBA LL)](#mnist-caps-mcdd-dba-ll)
+      - [CIFAR10 CAPS NMCD (DBA LL)](#cifar10-caps-nmcd-dba-ll)
+      - [CIFAR10 CAPS MCDD (DBA LL)](#cifar10-caps-mcdd-dba-ll)
     - [Tight Layout](#tight-layout-2)
       - [MNIST CAPS NMCD (DBA TL)](#mnist-caps-nmcd-dba-tl)
       - [MNIST CAPS MCDD (DBA TL)](#mnist-caps-mcdd-dba-tl)
       - [CIFAR10 CAPS NMCD (DBA TL)](#cifar10-caps-nmcd-dba-tl)
       - [CIFAR10 CAPS MCDD (DBA TL)](#cifar10-caps-mcdd-dba-tl)
-  - [Method Wise Comparison](#method-wise-comparison)
-    - [MNIST CAPS (MWC)](#mnist-caps-mwc)
-    - [CIFAR10 CAPS (MWC)](#cifar10-caps-mwc)
 <!--te-->
 
----
-**NOTE**: we seperated out **Loose Layout** visualizations of CIFAR10 in [More-Images.md](More-Images.md)
-to keep this file as neat and general as possible.
-
-**A Convenient Tip to Navigate between Sections**: In order to easily navigate between discussions
-and corresponding visualizations, I added _hyperlink_ to figures so that readers can easily
-click back to the discussion at the beginning of the section.
-
-E.g., readers can click any figures under [Norm Based Attacks](#norm-based-attacks) and the web
-browser will automatically reset page to the corresponding section discussion.
-
----
 
 ## Norm Based Attacks
-
 ### Same Origin vs Different Targets
 #### Loose Layout
 ##### MNSIT CNN NMN (NBA SOvsDT LL)
@@ -185,6 +147,95 @@ browser will automatically reset page to the corresponding section discussion.
 [![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/mnist_cap_max_norm_diff/8_distr.png)](#norm-based-attacks)
 [![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/mnist_cap_max_norm_diff/9.png)](#norm-based-attacks)
 [![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/mnist_cap_max_norm_diff/9_distr.png)](#norm-based-attacks)
+
+---
+##### CIFAR10 CNN NMN (NBA SOvsDT LL)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/0.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/0_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/1.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/1_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/2.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/2_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/3.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/3_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/4.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/4_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/5.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/5_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/6.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/6_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/7.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/7_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/8.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/8_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/9.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_naive_max_norm/9_distr.png)](#norm-based-attacks)
+
+##### CIFAR10 CNN MND (NBA SOvsDT LL)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/0.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/0_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/1.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/1_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/2.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/2_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/3.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/3_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/4.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/4_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/5.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/5_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/6.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/6_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/7.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/7_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/8.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/8_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/9.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cnn_max_norm_diff/9_distr.png)](#norm-based-attacks)
+
+##### CIFAR10 CAPS NMN (NBA SOvsDT LL)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/0.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/0_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/1.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/1_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/2.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/2_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/3.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/3_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/4.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/4_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/5.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/5_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/6.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/6_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/7.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/7_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/8.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/8_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/9.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm/9_distr.png)](#norm-based-attacks)
+
+##### CIFAR10 CAPS MND (NBA SOvsDT LL)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/0.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/0_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/1.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/1_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/2.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/2_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/3.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/3_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/4.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/4_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/5.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/5_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/6.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/6_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/7.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/7_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/8.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/8_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/9.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff/9_distr.png)](#norm-based-attacks)
 
 #### Tight Layout
 ##### MNIST CNN NMN (NBA SOvsDT TL)
@@ -296,6 +347,95 @@ browser will automatically reset page to the corresponding section discussion.
 [![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/mnist_cap_max_norm_diff/9.png)](#norm-based-attacks)
 [![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/mnist_cap_max_norm_diff/9_distr.png)](#norm-based-attacks)
 
+---
+##### CIFAR10 CNN NMN (NBA DOvsST LL)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/0.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/0_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/1.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/1_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/2.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/2_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/3.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/3_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/4.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/4_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/5.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/5_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/6.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/6_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/7.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/7_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/8.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/8_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/9.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_naive_max_norm/9_distr.png)](#norm-based-attacks)
+
+##### CIFAR10 CNN MND (NBA DOvsST LL)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/0.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/0_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/1.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/1_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/2.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/2_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/3.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/3_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/4.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/4_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/5.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/5_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/6.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/6_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/7.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/7_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/8.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/8_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/9.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cnn_max_norm_diff/9_distr.png)](#norm-based-attacks)
+
+##### CIFAR10 CAPS NMN (NBA DOvsST LL)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/0.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/0_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/1.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/1_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/2.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/2_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/3.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/3_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/4.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/4_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/5.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/5_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/6.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/6_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/7.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/7_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/8.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/8_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/9.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_naive_max_norm/9_distr.png)](#norm-based-attacks)
+
+##### CIFAR10 CAPS MND (NBA DOvsST LL)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/0.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/0_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/1.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/1_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/2.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/2_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/3.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/3_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/4.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/4_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/5.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/5_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/6.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/6_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/7.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/7_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/8.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/8_distr.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/9.png)](#norm-based-attacks)
+[![](norm_based/loose_layout/ins3_cap7/Diff_Ori-Same_Tar/cifar10_cap_max_norm_diff/9_distr.png)](#norm-based-attacks)
+
 #### Tight Layout
 ##### MNIST CNN NMN (NBA DOvsST TL)
 [![](norm_based/tight_layout/ins3_cap7/Diff_Ori-Same_Tar/mnist_cnn_naive_max_norm.png)](#norm-based-attacks)
@@ -386,6 +526,74 @@ browser will automatically reset page to the corresponding section discussion.
 [![](dim_based/loose_layout/ins3_cap7/mnist_cap_max_caps_dim_diff/15.png)](#dimension-based-attacks)
 [![](dim_based/loose_layout/ins3_cap7/mnist_cap_max_caps_dim_diff/15_distr.png)](#dimension-based-attacks)
 
+#### CIFAR10 CAPS NMCD (DBA LL)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/0.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/0_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/1.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/1_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/2.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/2_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/3.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/3_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/4.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/4_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/5.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/5_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/6.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/6_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/7.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/7_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/8.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/8_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/9.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/9_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/10.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/10_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/11.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/11_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/12.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/12_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/13.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/13_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/14.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/14_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/15.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim/15_distr.png)](#dimension-based-attacks)
+
+#### CIFAR10 CAPS MCDD (DBA LL)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/0.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/0_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/1.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/1_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/2.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/2_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/3.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/3_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/4.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/4_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/5.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/5_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/6.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/6_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/7.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/7_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/8.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/8_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/9.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/9_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/10.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/10_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/11.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/11_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/12.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/12_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/13.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/13_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/14.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/14_distr.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/15.png)](#dimension-based-attacks)
+[![](dim_based/loose_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff/15_distr.png)](#dimension-based-attacks)
+
 ### Tight Layout
 #### MNIST CAPS NMCD (DBA TL)
 [![](dim_based/tight_layout/ins3_cap7/mnist_cap_naive_max_caps_dim.png)](#dimension-based-attacks)
@@ -395,17 +603,3 @@ browser will automatically reset page to the corresponding section discussion.
 [![](dim_based/tight_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim.png)](#dimension-based-attacks)
 #### CIFAR10 CAPS MCDD (DBA TL)
 [![](dim_based/tight_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff.png)](#dimension-based-attacks)
-
-## Method Wise Comparison
-
-### MNIST CAPS (MWC)
-- NMN: [![](norm_based/tight_layout/ins3_cap7/Same_Ori-Diff_Tar/mnist_cap_naive_max_norm.png)](#method-wise-comparison)
-- MND: [![](norm_based/tight_layout/ins3_cap7/Same_Ori-Diff_Tar/mnist_cap_max_norm_diff.png)](#method-wise-comparison)
-- NMCD: [![](dim_based/tight_layout/ins3_cap7/mnist_cap_naive_max_caps_dim.png)](#method-wise-comparison)
-- MCDD: [![](dim_based/tight_layout/ins3_cap7/mnist_cap_max_caps_dim_diff.png)](#method-wise-comparison)
-
-### CIFAR10 CAPS (MWC)
-- NMN: [![](norm_based/tight_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm.png)](#method-wise-comparison)
-- MND: [![](norm_based/tight_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff.png)](#method-wise-comparison)
-- NMCD: [![](dim_based/tight_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim.png)](#method-wise-comparison)
-- MCDD: [![](dim_based/tight_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff.png)](#method-wise-comparison)
