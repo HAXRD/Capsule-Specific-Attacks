@@ -29,7 +29,6 @@ To keep visualizations of different methods comparable, the following discussion
 - **Different Origins vs Same Target**: we use different images as base images, then set a same capsule as target class to push the different base images into the same target class.
 
 Table of Content
-<!--ts-->
 - [Capsule Specific Attack Visualization Analysis](#capsule-specific-attack-visualization-analysis)
   - [Abbreviations](#abbreviations)
     - [Methods](#methods)
@@ -37,14 +36,9 @@ Table of Content
       - [Dimension Based](#dimension-based)
     - [Comparison Types](#comparison-types)
   - [Norm Based Attacks](#norm-based-attacks)
-  - [![](#norm-based-attacks)](#norm-based-attacks)
-  - [![](#norm-based-attacks)](#norm-based-attacks-1)
   - [Dimension Based Attacks](#dimension-based-attacks)
-  - [![](#dimension-based-attacks)](#dimension-based-attacks)
   - [Method Wise Summary](#method-wise-summary)
-  - [- MCDD: ![](#method-wise-comparison)](#mcdd-method-wise-comparison)
-  - [- MCDD: ![](#method-wise-comparison)](#mcdd-method-wise-comparison-1)
-<!--te-->
+
 
 ---
 **NOTE**: we seperated out **Loose Layout** visualizations of CIFAR10 in [More-Images.md](More-Images.md)
@@ -77,6 +71,7 @@ Original Class = 7, Target Class = 2
 [![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/mnist_cap_naive_max_norm/2.png)](#norm-based-attacks)
 - Caps MND: 
 [![](norm_based/loose_layout/ins3_cap7/Same_Ori-Diff_Tar/mnist_cap_max_norm_diff/2.png)](#norm-based-attacks)
+
 ---
 it is not hard to observe that the results from _CNNs_ are much noiser than those from _CapsNets_,
 which can partially result from the fact we did not adjust the step size for _CNNs_.
@@ -116,6 +111,7 @@ Original Class = 7, Target Class = 0 ~ 9 (each row is targeting one class)
   [![](norm_based/tight_layout/ins3_cap7/Same_Ori-Diff_Tar/mnist_cap_naive_max_norm.png)](#norm-based-attacks)
 - Caps MND
   [![](norm_based/tight_layout/ins3_cap7/Same_Ori-Diff_Tar/mnist_cap_max_norm_diff.png)](#norm-based-attacks)
+  
 ---
 
 ## Dimension Based Attacks
@@ -137,6 +133,7 @@ Collection 3, Same Origin = 7, Target Dimension of Capsule '7' = 2
 - Caps MCDD:
   [![](dim_based/loose_layout/ins3_cap7/mnist_cap_max_caps_dim_diff/2.png)](#dimension-based-attacks)
   [![](dim_based/loose_layout/ins3_cap7/mnist_cap_max_caps_dim_diff/2_distr.png)](#dimension-based-attacks)
+
 ---
  
 Further, we notice that the resultant predicted labels are random. For example, in
@@ -169,10 +166,12 @@ MNIST
 - MND: [![](norm_based/tight_layout/ins3_cap5/Same_Ori-Diff_Tar/mnist_cap_max_norm_diff.png)](#method-wise-comparison)
 - NMCD: [![](dim_based/tight_layout/ins3_cap5/mnist_cap_naive_max_caps_dim.png)](#method-wise-comparison)
 - MCDD: [![](dim_based/tight_layout/ins3_cap5/mnist_cap_max_caps_dim_diff.png)](#method-wise-comparison)
+
 ---
 CIFAR10
 - NMN: [![](norm_based/tight_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm.png)](#method-wise-comparison)
 - MND: [![](norm_based/tight_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff.png)](#method-wise-comparison)
 - NMCD: [![](dim_based/tight_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim.png)](#method-wise-comparison)
 - MCDD: [![](dim_based/tight_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff.png)](#method-wise-comparison)
+
 ---
