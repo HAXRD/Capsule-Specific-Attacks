@@ -41,14 +41,9 @@ Table of Content
   - [![](#norm-based-attacks)](#norm-based-attacks-1)
   - [Dimension Based Attacks](#dimension-based-attacks)
   - [![](#dimension-based-attacks)](#dimension-based-attacks)
-    - [Tight Layout](#tight-layout)
-      - [MNIST CAPS NMCD (DBA TL)](#mnist-caps-nmcd-dba-tl)
-      - [MNIST CAPS MCDD (DBA TL)](#mnist-caps-mcdd-dba-tl)
-      - [CIFAR10 CAPS NMCD (DBA TL)](#cifar10-caps-nmcd-dba-tl)
-      - [CIFAR10 CAPS MCDD (DBA TL)](#cifar10-caps-mcdd-dba-tl)
-  - [Method Wise Comparison](#method-wise-comparison)
-    - [MNIST CAPS (MWC)](#mnist-caps-mwc)
-    - [CIFAR10 CAPS (MWC)](#cifar10-caps-mwc)
+  - [Method Wise Summary](#method-wise-summary)
+  - [- MCDD: ![](#method-wise-comparison)](#mcdd-method-wise-comparison)
+  - [- MCDD: ![](#method-wise-comparison)](#mcdd-method-wise-comparison-1)
 <!--te-->
 
 ---
@@ -158,27 +153,26 @@ Collection 4, Same Origin = 7
 
 ---
 
+## Method Wise Summary
+Last but not least, we put together the adversarial images generated from our four methods to
+give a general visual evaluation. We have two criteria to make to evaluation: whether the image
+deceives the model, whether the perturbed image has almost marginal difference from the original one.
+Intuitively, we expected methods that explicitly try to maximize the difference between the target
+capsule/dimension and the rest (capsules/dimensions of a capsule) would have more effective attacks,
+such as MND and MCDD. Indeed, those methods can quickly perturb images into **effective** adversarial examples, but they are not **good** enough. Attacks generated from difference maximization methods
+(MND and MCDD) are much nosier than ones from naive methods (NMN and NCMD). This obervation
+holds for both MNSIT and CIFAR10, as shown in figures below. In those figures, we use another set of original images (instance=3, original class=5),
 
-### Tight Layout
-#### MNIST CAPS NMCD (DBA TL)
-[![](dim_based/tight_layout/ins3_cap7/mnist_cap_naive_max_caps_dim.png)](#dimension-based-attacks)
-#### MNIST CAPS MCDD (DBA TL)
-[![](dim_based/tight_layout/ins3_cap7/mnist_cap_max_caps_dim_diff.png)](#dimension-based-attacks)
-#### CIFAR10 CAPS NMCD (DBA TL)
-[![](dim_based/tight_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim.png)](#dimension-based-attacks)
-#### CIFAR10 CAPS MCDD (DBA TL)
-[![](dim_based/tight_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff.png)](#dimension-based-attacks)
-
-## Method Wise Comparison
-
-### MNIST CAPS (MWC)
-- NMN: [![](norm_based/tight_layout/ins3_cap7/Same_Ori-Diff_Tar/mnist_cap_naive_max_norm.png)](#method-wise-comparison)
-- MND: [![](norm_based/tight_layout/ins3_cap7/Same_Ori-Diff_Tar/mnist_cap_max_norm_diff.png)](#method-wise-comparison)
-- NMCD: [![](dim_based/tight_layout/ins3_cap7/mnist_cap_naive_max_caps_dim.png)](#method-wise-comparison)
-- MCDD: [![](dim_based/tight_layout/ins3_cap7/mnist_cap_max_caps_dim_diff.png)](#method-wise-comparison)
-
-### CIFAR10 CAPS (MWC)
+---
+MNIST
+- NMN: [![](norm_based/tight_layout/ins3_cap5/Same_Ori-Diff_Tar/mnist_cap_naive_max_norm.png)](#method-wise-comparison)
+- MND: [![](norm_based/tight_layout/ins3_cap5/Same_Ori-Diff_Tar/mnist_cap_max_norm_diff.png)](#method-wise-comparison)
+- NMCD: [![](dim_based/tight_layout/ins3_cap5/mnist_cap_naive_max_caps_dim.png)](#method-wise-comparison)
+- MCDD: [![](dim_based/tight_layout/ins3_cap5/mnist_cap_max_caps_dim_diff.png)](#method-wise-comparison)
+---
+CIFAR10
 - NMN: [![](norm_based/tight_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm.png)](#method-wise-comparison)
 - MND: [![](norm_based/tight_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff.png)](#method-wise-comparison)
 - NMCD: [![](dim_based/tight_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim.png)](#method-wise-comparison)
 - MCDD: [![](dim_based/tight_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff.png)](#method-wise-comparison)
+---
