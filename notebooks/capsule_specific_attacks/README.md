@@ -1,5 +1,7 @@
 # Capsule Specific Attack Visualization Analysis
 
+_For quick overview of visualizations, navigate to **Tight Layout** sections._
+
 Table of Content
 <!--ts-->
 - [Capsule Specific Attack Visualization Analysis](#capsule-specific-attack-visualization-analysis)
@@ -54,6 +56,9 @@ Table of Content
       - [MNIST CAPS MCDD](#mnist-caps-mcdd-1)
       - [CIFAR10 CAPS NMCD](#cifar10-caps-nmcd-2)
       - [CIFAR10 CAPS MCDD](#cifar10-caps-mcdd)
+  - [Method Wise Comparison](#method-wise-comparison)
+    - [MNIST CAPS](#mnist-caps)
+    - [CIFAR10 CAPS](#cifar10-caps)
 <!--te-->
 
 <aside class="notice">
@@ -617,3 +622,16 @@ To keep visualizations of different methods comparable, the following discussion
 #### CIFAR10 CAPS MCDD
 ![](dim_based/tight_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff.png)
 
+## Method Wise Comparison
+
+### MNIST CAPS
+- NMN: ![](norm_based/tight_layout/ins3_cap7/Same_Ori-Diff_Tar/mnist_cap_naive_max_norm.png)
+- MND: ![](norm_based/tight_layout/ins3_cap7/Same_Ori-Diff_Tar/mnist_cap_max_norm_diff.png)
+- NMCD: ![](dim_based/tight_layout/ins3_cap7/mnist_cap_naive_max_caps_dim.png)
+- MCDD: ![](dim_based/tight_layout/ins3_cap7/mnist_cap_max_caps_dim_diff.png)
+
+### CIFAR10 CAPS
+- NMN: ![](norm_based/tight_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_naive_max_norm.png)
+- MND: ![](norm_based/tight_layout/ins3_cap7/Same_Ori-Diff_Tar/cifar10_cap_max_norm_diff.png)
+- NMCD: ![](dim_based/tight_layout/ins3_cap7/cifar10_cap_naive_max_caps_dim.png)
+- MCDD: ![](dim_based/tight_layout/ins3_cap7/cifar10_cap_max_caps_dim_diff.png)
