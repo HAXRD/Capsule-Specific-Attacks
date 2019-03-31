@@ -383,38 +383,7 @@ def run_evaluate_session(iterator, specs, load_dir, summary_dir, kind,
         # get dataset object working
         batch_data = iterator.get_next()
 
-        """Process ensemble evaluation tensors"""
-        if model_type == 'cap':
-            # print ensemble capsule tensors
-            for i in range(specs['num_gpus']):
-                pprint(tf.get_collection('tower_%d_ensemble_acts' % i))
-            ensemble_votes_list = []
-            batched_images_t_list = []
-            batched_labels_t_list = []
-            for i in range(specs['num_gpus']):
-                ensemble_votes_list.append(tf.get_collection('tower_%d_ensemble_acts' % i))
-                batched_images_t_list.append(tf.get_collection('tower_%d_batched_images' % i)[0])
-                batched_labels_t_list.append(tf.get_collection('tower_%d_batched_labels' % i)[0])
-            removed_effect_votes = []
-            for i in range(specs['num_classes']):
-                removed_effect_votes.append(
-                    tf.concat([ensemble_votes_list[j][i] for j in range(specs['num_gpus'])], 0))
-            batched_images_t = tf.concat(batched_images_t_list, 0)
-            batched_labels_t = tf.concat(batched_labels_t_list, 0)
-            batched_ensemble_logits10_t = tf.add_n(removed_effect_votes)
-
-            images_t = batched_images_t
-            labels_t = tf.argmax(batched_labels_t, axis=1, output_type=tf.int32)
-            logits_t = tf.argmax(batched_ensemble_logits10_t, axis=1, output_type=tf.int32)
-
-            correct_t = tf.cast(tf.equal(logits_t, labels_t), tf.float32)
-
-            ensemble_acc_t = tf.reduce_mean(correct_t)
-
         acc_t = tf.get_collection('accuracy')[0]
-
-        if model_type == 'cap':
-            step_mean_ensemble_acc_pairs = []
         step_mean_acc_pairs = []
 
         # iteratively restore variables and run evaluations
@@ -423,9 +392,6 @@ def run_evaluate_session(iterator, specs, load_dir, summary_dir, kind,
             saver.restore(sess, ckptpath)
 
             sess.run(iterator.initializer)
-
-            if model_type == 'cap':
-                ensemble_accs = []
             accs = []
 
             while True:
@@ -436,30 +402,15 @@ def run_evaluate_session(iterator, specs, load_dir, summary_dir, kind,
                         batch_val = sess.run(batch_data)
                         feed_dict[tf.get_collection('tower_%d_batched_images' % i)[0]] = batch_val['images']
                         feed_dict[tf.get_collection('tower_%d_batched_labels' % i)[0]] = batch_val['labels']
-                        if model_type == 'cap':
-                            feed_dict[tf.get_collection('tower_%d_batched_threshold' % i)[0]] = threshold
-                    
-                    if model_type == 'cap':
-                        ensemble_acc, acc = sess.run([ensemble_acc_t, acc_t], feed_dict=feed_dict)
-                        ensemble_accs.append(ensemble_acc)
-                    else:
-                        acc = sess.run(acc_t, feed_dict=feed_dict)
+
+                    acc = sess.run(acc_t, feed_dict=feed_dict)
                     accs.append(acc)
                 except tf.errors.OutOfRangeError:
                     break
-            if model_type == 'cap':
-                mean_ensemble_acc = np.mean(ensemble_accs)
-                step_mean_ensemble_acc_pairs.append((step, mean_ensemble_acc))
-            mean_acc = np.mean(accs)
+            mean_acc = sum(accs) / len(accs)
             step_mean_acc_pairs.append((step, mean_acc))
-            if model_type == 'cap':
-                print('step: {0}, accuracy:ensemble = {1:.4f}: {2:.4f} ~ {3} / {4}'.format(step, mean_acc, mean_ensemble_acc, idx+1, len(all_step_ckpt_pairs)))
-            else:
-                print('step: {0}, accuracy = {1:.4f} ~ {2} / {3}'.format(step, mean_acc, idx+1, len(all_step_ckpt_pairs)))
-        if model_type == 'cap':
-            with open(os.path.join(summary_dir, '%s_ensemble_history.txt' % kind), 'w+') as f:
-                for step, mean_ensemble_acc in step_mean_ensemble_acc_pairs:
-                    f.write('{}, {}\n'.format(step, mean_ensemble_acc))
+            
+            print('step: {0}, accuracy = {1:.4f} ~ {2} / {3}'.format(step, mean_acc, idx+1, len(all_step_ckpt_pairs)))
         with open(os.path.join(summary_dir, '%s_history.txt') % kind, 'w+') as f:
             for step, mean_acc in step_mean_acc_pairs:
                 f.write('{}, {}\n'.format(step, mean_acc))
@@ -537,6 +488,7 @@ def run_test_session(iterator, specs, load_dir):
                 accs.append(acc)
             except tf.errors.OutOfRangeError:
                 break
+        print(accs)
         mean_acc = np.mean(accs)
         print(mean_acc)
 
