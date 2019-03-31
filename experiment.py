@@ -532,7 +532,7 @@ def run_test_session(iterator, specs, load_dir):
                 for i in range(specs['num_gpus']):
                     batch_val = sess.run(batch_data)
                     feed_dict[tf.get_collection('tower_%d_batched_images' % i)[0]] = batch_val['images']
-                    feed_dict[tf.get_collection('tower_%d_batched_images' % i)[0]] = batch_val['labels']
+                    feed_dict[tf.get_collection('tower_%d_batched_labels' % i)[0]] = batch_val['labels']
                 acc = sess.run(acc_t, feed_dict=feed_dict)
                 accs.append(acc)
             except tf.errors.OutOfRangeError:
