@@ -504,6 +504,57 @@ def evaluate(num_gpus, data_dir, dataset, model_type, total_batch_size, image_si
         run_evaluate_session(test_iterator, test_specs, load_dir, summary_dir, 'test', 
                              model_type, threshold)
 
+def run_test_session(iterator, specs, load_dir, mode, model_type):
+    """Load available ckpts"""
+    latest_step, latest_ckpt_path, _ = find_latest_checkpoint_info(load_dir, False)
+    if latest_step == -1 or latest_ckpt_path == None:
+        raise ValueError('{0}\n ckpt files not found!\n {0}'.format('='*20))
+    else:
+        print('{0}\nFound a ckpt!\n{0}'.format('='*20))
+        latest_ckpt_meta_path = latest_ckpt_path + '.meta'
+
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
+        # import compute graph
+        saver = tf.train.import_meta_graph(latest_ckpt_meta_path)
+        # get dataset object working
+        batch_data = iterator.get_next()
+
+        acc_t = tf.get_collection('accuracy')[0]
+        
+        # restore variables 
+        saver.restore(sess, latest_ckpt_path)
+        sess.run(iterator.initializer)
+
+        accs = []
+        while True:
+            try:
+                feed_dict = {}
+                for i in range(specs['num_gpus']):
+                    batch_val = sess.run(batch_data)
+                    feed_dict[tf.get_collection('tower_%d_batched_images' % i)[0]] = batch_val['images']
+                    feed_dict[tf.get_collection('tower_%d_batched_images' % i)[0]] = batch_val['labels']
+                acc = sess.run(acc_t, feed_dict=feed_dict)
+                accs.append(acc)
+            except tf.errors.OutOfRangeError:
+                break
+        mean_acc = np.mean(accs)
+        print(mean_acc)
+
+def test(mode, num_gpus, data_dir, dataset, model_type, total_batch_size, image_size,
+         summary_dir, max_epochs):
+    # define subfolder to load ckpt
+    load_dir = os.path.join(summary_dir, 'train')
+    # declare an empty model graph
+    with tf.Graph().as_default():
+        # get train batched dataset and declare initializable iterator
+        distributed_dataset, specs = get_distributed_dataset(
+            total_batch_size, num_gpus, max_epochs,
+            data_dir, dataset, image_size,
+            mode)
+        iterator = distributed_dataset.make_initializable_iterator()
+        # call test experiment
+        run_test_session(iterator, specs, load_dir, mode, model_type)
+
 def run_norm_aspect(num_gpus, total_batch_size, max_epochs, data_dir, dataset, image_size,
                     iter_n, step, threshold,
                     load_dir, summary_dir, aspect_type):
@@ -800,6 +851,9 @@ def main(_):
     if FLAGS.mode == 'train':
         train(hparams, FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size, 
                        FLAGS.summary_dir, FLAGS.save_epochs, FLAGS.max_epochs)
+    if FLAGS.mode == 'test':
+        test(FLAGS.mode, FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size,
+             FLAGS.summary_dir, FLAGS.max_epochs)
     elif FLAGS.mode == 'evaluate':
         evaluate(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size,
                  FLAGS.threshold, FLAGS.summary_dir, FLAGS.max_epochs)
