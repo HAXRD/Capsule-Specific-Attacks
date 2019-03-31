@@ -28,7 +28,8 @@ tf.flags.DEFINE_integer('max_epochs', 10,
                         'others: number of different examples to viasualize.')
 tf.flags.DEFINE_integer('image_size', 28,
                         'Define the image size for dataset.')
-
+tf.flags.DEFINE_string('split', 'train',
+                        'Used for test func')
 tf.flags.DEFINE_string('mode', 'train',
                        'train: train the model;\n'
                        'evaluate: evaluate the model for both training and testing set using different evaluation metrics;\n'
