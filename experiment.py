@@ -540,7 +540,7 @@ def run_test_session(iterator, specs, load_dir):
         mean_acc = np.mean(accs)
         print(mean_acc)
 
-def test(split, num_gpus, data_dir, dataset, total_batch_size, image_size, max_epochs):
+def test(split, num_gpus, data_dir, dataset, total_batch_size, image_size, summary_dir, max_epochs):
     # define subfolder to load ckpt
     load_dir = os.path.join(summary_dir, 'train')
     # declare an empty model graph
@@ -851,7 +851,7 @@ def main(_):
         train(hparams, FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size, 
                        FLAGS.summary_dir, FLAGS.save_epochs, FLAGS.max_epochs)
     if FLAGS.mode == 'test':
-        test(FLAGS.split, FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.total_batch_size, FLAGS.image_size, FLAGS.max_epochs)
+        test(FLAGS.split, FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.total_batch_size, FLAGS.image_size, FLAGS.summary_dir, FLAGS.max_epochs)
     elif FLAGS.mode == 'evaluate':
         evaluate(FLAGS.num_gpus, FLAGS.data_dir, FLAGS.dataset, FLAGS.model, FLAGS.total_batch_size, FLAGS.image_size,
                  FLAGS.threshold, FLAGS.summary_dir, FLAGS.max_epochs)
